@@ -1,0 +1,821 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>实时路况监控 - 城市交通预测与疏导系统</title>
+    <!-- Vue 3 CDN -->
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <!-- ECharts CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
+    <!-- Axios CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+    <!-- Font Awesome 图标 -->
+    <link rel="stylesheet" href="https://cdn.bootcdn.net/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        /* 全局样式 */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: "Microsoft YaHei", Arial, sans-serif;
+        }
+        body {
+            background: linear-gradient(135deg, #0a192f 0%, #112240 100%);
+            color: #e6f1ff;
+            min-height: 100vh;
+        }
+
+        /* 顶部导航栏 */
+        .header {
+            background: rgba(16, 52, 88, 0.6);
+            border: 1px solid rgba(64, 158, 255, 0.3);
+            padding: 15px 30px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 0 15px rgba(0, 123, 255, 0.2);
+        }
+        .header h1 {
+            font-size: 22px;
+            color: #64ffda;
+            text-shadow: 0 0 8px rgba(100, 255, 218, 0.4);
+        }
+        .user-info {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+        }
+        .user-info span {
+            font-size: 14px;
+            color: #a8b2d1;
+        }
+        .user-info a {
+            color: #409eff;
+            text-decoration: none;
+            padding: 5px 10px;
+            background: rgba(64, 158, 255, 0.2);
+            border: 1px solid #409eff;
+            border-radius: 4px;
+            font-size: 14px;
+            transition: all 0.3s ease;
+        }
+        .user-info a:hover {
+            background: #409eff;
+            color: #fff;
+            box-shadow: 0 0 10px rgba(64, 158, 255, 0.5);
+        }
+
+        /* 选项卡导航 */
+        .tab-nav {
+            display: flex;
+            justify-content: center;
+            margin: 20px auto;
+            max-width: 1200px;
+            background: rgba(16, 52, 88, 0.4);
+            border: 1px solid rgba(64, 158, 255, 0.3);
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        .tab-btn {
+            flex: 1;
+            padding: 15px;
+            background: transparent;
+            border: none;
+            color: #a8b2d1;
+            font-size: 16px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-align: center;
+        }
+        .tab-btn:hover {
+            background: rgba(64, 158, 255, 0.1);
+        }
+        .tab-btn.active {
+            background: rgba(64, 158, 255, 0.2);
+            color: #64ffda;
+            border-bottom: 2px solid #64ffda;
+        }
+
+        /* 内容容器 */
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        /* 卡片通用样式 */
+        .card {
+            background: rgba(16, 52, 88, 0.4);
+            border: 1px solid rgba(64, 158, 255, 0.3);
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 4px 20px rgba(0, 123, 255, 0.15);
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+            margin-bottom: 20px;
+        }
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid rgba(64, 158, 255, 0.2);
+        }
+        .card-header h3 {
+            margin: 0;
+            color: #64ffda;
+            font-size: 18px;
+        }
+        .refresh-btn {
+            background: rgba(64, 158, 255, 0.2);
+            border: 1px solid #409eff;
+            color: #409eff;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        .refresh-btn:hover {
+            background: #409eff;
+            color: #fff;
+            box-shadow: 0 0 10px rgba(64, 158, 255, 0.5);
+        }
+
+        /* 实时监控样式 */
+        .monitor-content {
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 20px;
+        }
+        .road-list-wrapper {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+            gap: 12px;
+            max-height: 500px;
+            overflow-y: auto;
+            padding-right: 8px;
+        }
+        .road-item {
+            background: rgba(10, 38, 71, 0.6);
+            border: 1px solid rgba(64, 158, 255, 0.2);
+            border-radius: 6px;
+            padding: 15px;
+            transition: all 0.3s ease;
+        }
+        .road-item:hover {
+            border-color: #409eff;
+            box-shadow: 0 0 10px rgba(64, 158, 255, 0.3);
+            transform: translateY(-2px);
+        }
+        .road-name {
+            font-size: 16px;
+            color: #64ffda;
+            margin-bottom: 10px;
+            font-weight: 500;
+        }
+        .road-stats {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 14px;
+            color: #a8b2d1;
+        }
+        .status-tag {
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: bold;
+            text-shadow: 0 0 4px rgba(0,0,0,0.3);
+        }
+        .status-smooth .status-tag {
+            background: #34d399;
+            color: #064e3b;
+            box-shadow: 0 0 8px rgba(52, 211, 153, 0.4);
+        }
+        .status-slow .status-tag {
+            background: #f59e0b;
+            color: #78350f;
+            box-shadow: 0 0 8px rgba(245, 158, 11, 0.4);
+        }
+        .status-congest .status-tag {
+            background: #f43f5e;
+            color: #831843;
+            box-shadow: 0 0 8px rgba(244, 63, 94, 0.4);
+        }
+        .detail-card-group {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+        .detail-card .card-title {
+            color: #64ffda;
+            font-size: 16px;
+            margin-bottom: 15px;
+            padding-bottom: 8px;
+            border-bottom: 1px solid rgba(64, 158, 255, 0.2);
+        }
+        .congest-stats {
+            display: flex;
+            justify-content: space-around;
+            text-align: center;
+        }
+        .stat-block .stat-label {
+            display: block;
+            font-size: 14px;
+            color: #a8b2d1;
+            margin-bottom: 8px;
+        }
+        .stat-block .stat-value {
+            font-size: 24px;
+            font-weight: bold;
+            text-shadow: 0 0 5px rgba(64, 158, 255, 0.4);
+        }
+        .smooth .stat-value { color: #34d399; }
+        .slow .stat-value { color: #f59e0b; }
+        .congest .stat-value { color: #f43f5e; }
+        .avg-flow {
+            font-size: 36px;
+            text-align: center;
+            color: #409eff;
+            font-weight: bold;
+            text-shadow: 0 0 8px rgba(64, 158, 255, 0.5);
+        }
+        .flow-tip {
+            text-align: center;
+            font-size: 12px;
+            color: #8892b0;
+            margin-top: 8px;
+        }
+
+        /* 统计分析样式 */
+        .stats-content {
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 20px;
+        }
+        .echarts-container {
+            width: 100%;
+            height: 400px;
+            border-radius: 6px;
+        }
+        .stats-card-group {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+        .rank-list {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        .rank-item {
+            display: flex;
+            align-items: center;
+            background: rgba(10, 38, 71, 0.6);
+            border-radius: 6px;
+            padding: 10px 15px;
+            border-left: 3px solid #409eff;
+            transition: all 0.3s ease;
+        }
+        .rank-item:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0, 123, 255, 0.2);
+        }
+        .rank-num {
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            margin-right: 15px;
+        }
+        .rank-1 { background: #f43f5e; color: #fff; box-shadow: 0 0 8px rgba(244, 63, 94, 0.4); }
+        .rank-2 { background: #f59e0b; color: #fff; box-shadow: 0 0 8px rgba(245, 158, 11, 0.4); }
+        .rank-3 { background: #34d399; color: #fff; box-shadow: 0 0 8px rgba(52, 211, 153, 0.4); }
+        .rank-other { background: rgba(64, 158, 255, 0.2); color: #409eff; }
+        .rank-info {
+            flex: 1;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .road-name { color: #64ffda; font-size: 14px; font-weight: 500; }
+        .flow-value { color: #e6f1ff; font-size: 14px; font-weight: bold; }
+
+        /* 表格样式 */
+        .table-wrapper {
+            overflow-x: auto;
+            margin-top: 15px;
+        }
+        .traffic-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        .traffic-table th {
+            background: rgba(10, 38, 71, 0.8);
+            color: #64ffda;
+            padding: 12px 15px;
+            text-align: left;
+            font-size: 14px;
+            border: 1px solid rgba(64, 158, 255, 0.2);
+        }
+        .traffic-table td {
+            padding: 12px 15px;
+            color: #a8b2d1;
+            font-size: 14px;
+            border: 1px solid rgba(64, 158, 255, 0.1);
+        }
+        .level-tag {
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: bold;
+            text-align: center;
+        }
+        .level-smooth .level-tag { background: #34d399; color: #064e3b; }
+        .level-slow .level-tag { background: #f59e0b; color: #78350f; }
+        .level-congest .level-tag { background: #f43f5e; color: #831843; }
+        .level-severe .level-tag { background: #be123c; color: #fff; }
+
+        /* 滚动条美化 */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: rgba(16, 52, 88, 0.2);
+            border-radius: 3px;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: rgba(64, 158, 255, 0.5);
+            border-radius: 3px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #409eff;
+        }
+
+        /* 响应式适配 */
+        @media (max-width: 768px) {
+            .monitor-content, .stats-content {
+                grid-template-columns: 1fr;
+            }
+            .road-list-wrapper {
+                grid-template-columns: 1fr;
+            }
+            .echarts-container {
+                height: 300px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- 顶部导航栏 -->
+    <div class="header">
+        <h1><i class="fas fa-traffic-light"></i> 实时路况监控系统</h1>
+        <div class="user-info">
+            <span>当前用户：{{ username }}（{{ '管理员' if role == 'admin' else '普通用户' }}）</span>
+            <a href="{{ url_for('index') }}"><i class="fas fa-home"></i> 返回首页</a>
+            <a href="{{ url_for('logout') }}"><i class="fas fa-sign-out-alt"></i> 退出登录</a>
+        </div>
+    </div>
+
+    <!-- 选项卡导航 -->
+    <div class="tab-nav" id="tabNav">
+        <button class="tab-btn active" data-tab="monitor">
+            <i class="fas fa-tachometer-alt"></i> 实时监控
+        </button>
+        <button class="tab-btn" data-tab="statistics">
+            <i class="fas fa-chart-bar"></i> 统计分析
+        </button>
+    </div>
+
+    <!-- Vue 应用容器 -->
+    {% raw %}
+    <div id="app" class="container">
+        <!-- 实时监控 -->
+        <div v-if="activeTab === 'monitor'" class="tab-content">
+            <div class="card">
+                <div class="card-header">
+                    <h3><i class="fas fa-map-marked-alt"></i> 武汉核心路口实时交通监控</h3>
+                    <button class="refresh-btn" @click="fetchTrafficData">
+                        <i class="fas fa-sync-alt"></i> 刷新
+                    </button>
+                </div>
+                <div class="monitor-content">
+                    <!-- 左侧路口列表 -->
+                    <div class="card">
+                        <div class="card-header">
+                            <h3>路口实时状态</h3>
+                            <span class="stat-item">实时路口数: {{ trafficData.length }} 个</span>
+                        </div>
+                        <div class="road-list-wrapper">
+                            <div class="road-item" v-for="(item, index) in trafficData" :key="index"
+                                 :class="getTrafficClass(item.status)">
+                                <div class="road-name">{{ item.roadName }}</div>
+                                <div class="road-stats">
+                                    <span class="speed">车速: {{ item.speed }} km/h</span>
+                                    <span class="status-tag">{{ item.status }}</span>
+                                    <span class="flow">流量: {{ item.flow }} 辆/小时</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 右侧统计 -->
+                    <div class="detail-card-group">
+                        <div class="card">
+                            <div class="card-title">拥堵分布</div>
+                            <div class="congest-stats">
+                                <div class="stat-block smooth">
+                                    <span class="stat-label">畅通</span>
+                                    <span class="stat-value">{{ smoothCount }}</span>
+                                </div>
+                                <div class="stat-block slow">
+                                    <span class="stat-label">缓行</span>
+                                    <span class="stat-value">{{ slowCount }}</span>
+                                </div>
+                                <div class="stat-block congest">
+                                    <span class="stat-label">拥堵</span>
+                                    <span class="stat-value">{{ congestCount }}</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="card">
+                            <div class="card-title">平均车流量</div>
+                            <div class="avg-flow">{{ avgFlow }}</div>
+                            <div class="flow-tip">辆/小时（10个路口平均值）</div>
+                        </div>
+
+                        <div class="card">
+                            <div class="card-title">数据更新时间</div>
+                            <div class="avg-flow" style="font-size: 24px;">{{ lastUpdateTime }}</div>
+                            <div class="flow-tip">点击刷新按钮获取最新数据</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 统计分析 -->
+        <div v-if="activeTab === 'statistics'" class="tab-content">
+            <div class="card">
+                <div class="card-header">
+                    <h3><i class="fas fa-chart-line"></i> 交通流量统计分析</h3>
+                    <button class="refresh-btn" @click="fetchStatistics">
+                        <i class="fas fa-sync-alt"></i> 刷新
+                    </button>
+                </div>
+                <div class="stats-content">
+                    <!-- 左侧图表 -->
+                    <div class="card">
+                        <div class="card-header">
+                            <h3>路口流量排名</h3>
+                            <span class="stat-item">数据来源：高德实时路况</span>
+                        </div>
+                        <div id="flowChart" class="echarts-container"></div>
+                    </div>
+
+                    <!-- 右侧排名 -->
+                    <div class="stats-card-group">
+                        <div class="card">
+                            <div class="card-title">流量排名 TOP 5</div>
+                            <div class="rank-list">
+                                <div class="rank-item" v-for="(item, index) in top5Flow" :key="index">
+                                    <div class="rank-num" :class="'rank-' + (index + 1)">{{ index + 1 }}</div>
+                                    <div class="rank-info">
+                                        <span class="road-name">{{ item.roadName }}</span>
+                                        <span class="flow-value">{{ item.flow }} 辆/小时</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="card">
+                            <div class="card-title">拥堵排名 TOP 5</div>
+                            <div class="rank-list">
+                                <div class="rank-item" v-for="(item, index) in top5Congest" :key="index">
+                                    <div class="rank-num" :class="'rank-' + (index + 1)">{{ index + 1 }}</div>
+                                    <div class="rank-info">
+                                        <span class="road-name">{{ item.roadName }}</span>
+                                        <span class="flow-value">{{ item.speed }} km/h</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 详细数据表格 -->
+            <div class="card">
+                <div class="card-header">
+                    <h3><i class="fas fa-table"></i> 详细数据</h3>
+                    <span class="stat-item">共 {{ trafficData.length }} 条记录</span>
+                </div>
+                <div class="table-wrapper">
+                    <table class="traffic-table">
+                        <thead>
+                            <tr>
+                                <th>路口名称</th>
+                                <th>车速 (km/h)</th>
+                                <th>状态</th>
+                                <th>流量 (辆/小时)</th>
+                                <th>拥堵等级</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr v-for="(item, index) in trafficData" :key="index" :class="getLevelClass(item.status)">
+                                <td>{{ item.roadName }}</td>
+                                <td>{{ item.speed }}</td>
+                                <td>{{ item.status }}</td>
+                                <td>{{ item.flow }}</td>
+                                <td><span class="level-tag">{{ getLevelText(item.status) }}</span></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endraw %}
+
+    <!-- Vue 应用脚本 -->
+    <script>
+        const { createApp, ref, computed, onMounted, watch } = Vue;
+
+        createApp({
+            setup() {
+                // 响应式数据
+                const activeTab = ref('monitor');
+                const trafficData = ref([]);
+                const lastUpdateTime = ref('--:--:--');
+                const flowChart = ref(null);
+
+                // 计算属性
+                const smoothCount = computed(() => {
+                    return trafficData.value.filter(item => item.status === '畅通').length;
+                });
+                const slowCount = computed(() => {
+                    return trafficData.value.filter(item => item.status === '缓行').length;
+                });
+                const congestCount = computed(() => {
+                    return trafficData.value.filter(item => item.status === '拥堵' || item.status === '严重拥堵').length;
+                });
+                const avgFlow = computed(() => {
+                    if (trafficData.value.length === 0) return 0;
+                    const sum = trafficData.value.reduce((acc, item) => acc + item.flow, 0);
+                    return Math.round(sum / trafficData.value.length);
+                });
+                const top5Flow = computed(() => {
+                    return [...trafficData.value]
+                        .sort((a, b) => b.flow - a.flow)
+                        .slice(0, 5);
+                });
+                const top5Congest = computed(() => {
+                    return [...trafficData.value]
+                        .sort((a, b) => a.speed - b.speed)
+                        .slice(0, 5);
+                });
+
+                // 方法
+                const getTrafficClass = (status) => {
+                    if (status === '畅通') return 'status-smooth';
+                    if (status === '缓行') return 'status-slow';
+                    return 'status-congest';
+                };
+
+                const getLevelClass = (status) => {
+                    if (status === '畅通') return 'level-smooth';
+                    if (status === '缓行') return 'level-slow';
+                    if (status === '拥堵') return 'level-congest';
+                    return 'level-severe';
+                };
+
+                const getLevelText = (status) => {
+                    if (status === '畅通') return '畅通';
+                    if (status === '缓行') return '缓行';
+                    if (status === '拥堵') return '拥堵';
+                    return '严重拥堵';
+                };
+
+                const fetchTrafficData = async () => {
+                    try {
+                        console.log('开始获取实时路况数据...');
+                        const response = await axios.get('/api/real-time/all');
+                        console.log('API 响应状态:', response.status);
+                        console.log('API 响应数据:', response.data);
+                        
+                        if (!response.data || !Array.isArray(response.data)) {
+                            console.error('API 返回数据格式错误:', response.data);
+                            alert('数据格式错误，请稍后重试');
+                            return;
+                        }
+                        
+                        trafficData.value = response.data;
+                        console.log('数据已更新，数量:', trafficData.value.length);
+                        lastUpdateTime.value = new Date().toLocaleTimeString('zh-CN');
+                        
+                        if (activeTab.value === 'statistics') {
+                            console.log('当前在统计分析选项卡，渲染图表...');
+                            renderFlowChart();
+                        }
+                    } catch (error) {
+                        console.error('获取实时路况数据失败:', error);
+                        console.error('错误详情:', error.response ? {
+                            status: error.response.status,
+                            data: error.response.data
+                        } : error.message);
+                        alert('获取数据失败，请检查网络连接或稍后重试');
+                    }
+                };
+
+                const fetchStatistics = () => {
+                    fetchTrafficData();
+                };
+
+                const renderFlowChart = () => {
+                    console.log('开始渲染图表...');
+                    
+                    if (!trafficData.value.length) {
+                        console.warn('没有数据可渲染图表');
+                        return;
+                    }
+                    
+                    const chartDom = document.getElementById('flowChart');
+                    if (!chartDom) {
+                        console.error('找不到图表容器 #flowChart');
+                        return;
+                    }
+                    
+                    // 检查容器尺寸
+                    if (chartDom.offsetWidth === 0 || chartDom.offsetHeight === 0) {
+                        console.warn('图表容器尺寸为0，等待重试...');
+                        setTimeout(renderFlowChart, 100);
+                        return;
+                    }
+                    
+                    let myChart = echarts.getInstanceByDom(chartDom);
+                    if (myChart) {
+                        myChart.dispose(); // 销毁旧实例
+                    }
+                    
+                    myChart = echarts.init(chartDom);
+                    console.log('ECharts 实例已初始化');
+                    
+                    // 准备数据
+                    const roadNames = trafficData.value.map(item => item.roadName);
+                    const flows = trafficData.value.map(item => item.flow);
+                    const speeds = trafficData.value.map(item => item.speed);
+                    
+                    const option = {
+                        tooltip: {
+                            trigger: 'axis',
+                            axisPointer: { type: 'shadow' }
+                        },
+                        legend: {
+                            data: ['车流量', '平均车速'],
+                            textStyle: { color: '#a8b2d1' }
+                        },
+                        grid: {
+                            left: '3%',
+                            right: '4%',
+                            bottom: '3%',
+                            containLabel: true
+                        },
+                        xAxis: {
+                            type: 'category',
+                            data: roadNames,
+                            axisLabel: {
+                                color: '#a8b2d1',
+                                rotate: 45
+                            },
+                            axisLine: {
+                                lineStyle: { color: 'rgba(64, 158, 255, 0.3)' }
+                            }
+                        },
+                        yAxis: [
+                            {
+                                type: 'value',
+                                name: '车流量 (辆/小时)',
+                                nameTextStyle: { color: '#a8b2d1' },
+                                axisLabel: { color: '#a8b2d1' },
+                                axisLine: {
+                                    lineStyle: { color: 'rgba(64, 158, 255, 0.3)' }
+                                },
+                                splitLine: {
+                                    lineStyle: { color: 'rgba(64, 158, 255, 0.1)' }
+                                }
+                            },
+                            {
+                                type: 'value',
+                                name: '平均车速 (km/h)',
+                                nameTextStyle: { color: '#a8b2d1' },
+                                axisLabel: { color: '#a8b2d1' },
+                                axisLine: {
+                                    lineStyle: { color: 'rgba(64, 158, 255, 0.3)' }
+                                },
+                                splitLine: {
+                                    lineStyle: { color: 'rgba(64, 158, 255, 0.1)' }
+                                }
+                            }
+                        ],
+                        series: [
+                            {
+                                name: '车流量',
+                                type: 'bar',
+                                data: flows,
+                                itemStyle: {
+                                    color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+                                        { offset: 0, color: '#409eff' },
+                                        { offset: 1, color: '#64ffda' }
+                                    ])
+                                },
+                                barWidth: '60%'
+                            },
+                            {
+                                name: '平均车速',
+                                type: 'line',
+                                yAxisIndex: 1,
+                                data: speeds,
+                                itemStyle: { color: '#f43f5e' },
+                                lineStyle: { width: 3 },
+                                symbol: 'circle',
+                                symbolSize: 8
+                            }
+                        ]
+                    };
+                    
+                    myChart.setOption(option);
+                    
+                    // 响应窗口大小变化
+                    window.addEventListener('resize', () => {
+                        myChart.resize();
+                    });
+                };
+
+                // 生命周期
+                onMounted(() => {
+                    fetchTrafficData();
+                    // 每30秒自动刷新
+                    setInterval(fetchTrafficData, 30000);
+                    
+                    // 添加选项卡点击事件监听
+                    setupTabClickHandlers();
+                });
+                
+                // 设置选项卡点击事件处理
+                const setupTabClickHandlers = () => {
+                    const tabButtons = document.querySelectorAll('#tabNav .tab-btn');
+                    tabButtons.forEach(button => {
+                        button.addEventListener('click', () => {
+                            const tab = button.getAttribute('data-tab');
+                            if (tab) {
+                                // 更新 Vue 响应式数据
+                                activeTab.value = tab;
+                                
+                                // 更新按钮激活状态
+                                tabButtons.forEach(btn => btn.classList.remove('active'));
+                                button.classList.add('active');
+                                
+                                console.log(`切换到选项卡: ${tab}`);
+                            }
+                        });
+                    });
+                };
+
+                // 监听选项卡变化以渲染图表
+                watch(activeTab, (newTab) => {
+                    if (newTab === 'statistics') {
+                        // 使用 nextTick 确保 DOM 更新完成
+                        Vue.nextTick(() => {
+                            setTimeout(renderFlowChart, 50);
+                        });
+                    }
+                });
+
+                return {
+                    activeTab,
+                    trafficData,
+                    lastUpdateTime,
+                    smoothCount,
+                    slowCount,
+                    congestCount,
+                    avgFlow,
+                    top5Flow,
+                    top5Congest,
+                    getTrafficClass,
+                    getLevelClass,
+                    getLevelText,
+                    fetchTrafficData,
+                    fetchStatistics
+                };
+            }
+        }).mount('#app');
+    </script>
+</body>
+</html>

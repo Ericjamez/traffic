@@ -1,0 +1,803 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>城市交通预测与疏导系统 - 首页</title>
+    <style>
+        /* 全局样式 */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: "Microsoft YaHei", Arial, sans-serif;
+        }
+        body {
+            background-color: #f8f9fa;
+        }
+
+        /* 顶部导航栏 */
+        .header {
+            background-color: #007bff;
+            color: white;
+            padding: 15px 30px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        .header h1 {
+            font-size: 22px;
+            font-weight: 600;
+        }
+        .user-info {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+        }
+        .user-info span {
+            font-size: 14px;
+        }
+        .user-info a {
+            color: white;
+            text-decoration: none;
+            padding: 5px 10px;
+            background-color: #dc3545;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+        .user-info a:hover {
+            background-color: #c82333;
+        }
+
+        /* 提示信息 */
+        .flash-message {
+            width: 90%;
+            max-width: 1200px;
+            margin: 20px auto;
+            padding: 10px;
+            border-radius: 4px;
+            background-color: #d4edda;
+            color: #155724;
+            text-align: center;
+        }
+
+        /* 核心功能区 */
+        .function-area {
+            width: 90%;
+            max-width: 1200px;
+            margin: 0 auto 30px;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+        }
+        .function-card {
+            background-color: white;
+            padding: 25px;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+            text-align: center;
+            transition: transform 0.3s;
+        }
+        .function-card:hover {
+            transform: translateY(-5px);
+        }
+        .function-card i {
+            font-size: 40px;
+            color: #007bff;
+            margin-bottom: 15px;
+        }
+        .function-card h3 {
+            font-size: 18px;
+            margin-bottom: 10px;
+            color: #333;
+        }
+        .function-card p {
+            color: #666;
+            font-size: 14px;
+            margin-bottom: 15px;
+        }
+        .function-card a {
+            display: inline-block;
+            padding: 8px 20px;
+            background-color: #007bff;
+            color: white;
+            text-decoration: none;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+        .function-card a:hover {
+            background-color: #0069d9;
+        }
+
+        /* 实时路况区 */
+        .traffic-area {
+            width: 90%;
+            max-width: 1200px;
+            margin: 0 auto;
+            background-color: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        }
+        .traffic-area h2 {
+            font-size: 20px;
+            color: #333;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid #eee;
+        }
+        .traffic-area .update-time {
+            font-size: 14px;
+            color: #666;
+            margin-bottom: 20px;
+        }
+        .traffic-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        .traffic-table th, .traffic-table td {
+            padding: 12px 15px;
+            text-align: left;
+            border-bottom: 1px solid #eee;
+        }
+        .traffic-table th {
+            background-color: #e9f5ff;
+            color: #333;
+            font-weight: 600;
+        }
+        .traffic-table tr:hover {
+            background-color: #f8f9fa;
+        }
+        .status-tag {
+            display: inline-block;
+            padding: 3px 8px;
+            border-radius: 4px;
+            color: white;
+            font-size: 12px;
+        }
+
+        /* 车流量可视化样式 */
+        .flow-visualization {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+        .flow-item {
+            background-color: #f8f9fa;
+            border-radius: 8px;
+            padding: 15px;
+            border-left: 4px solid #007bff;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        .flow-item:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+        .flow-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        .road-name {
+            font-size: 16px;
+            font-weight: 600;
+            color: #333;
+        }
+        .flow-level {
+            padding: 3px 10px;
+            border-radius: 12px;
+            color: white;
+            font-size: 12px;
+            font-weight: 500;
+        }
+        .flow-bar-container {
+            position: relative;
+            height: 30px;
+            background-color: #e9ecef;
+            border-radius: 15px;
+            margin: 10px 0;
+            overflow: hidden;
+        }
+        .flow-bar {
+            height: 100%;
+            border-radius: 15px;
+            transition: width 0.5s ease-out;
+            position: relative;
+        }
+        .flow-bar::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: linear-gradient(90deg, 
+                rgba(255, 255, 255, 0.1) 0%, 
+                rgba(255, 255, 255, 0.3) 50%, 
+                rgba(255, 255, 255, 0.1) 100%);
+            animation: shimmer 2s infinite;
+        }
+        @keyframes shimmer {
+            0% { transform: translateX(-100%); }
+            100% { transform: translateX(100%); }
+        }
+        .flow-value {
+            position: absolute;
+            left: 15px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #333;
+            font-weight: 600;
+            font-size: 14px;
+            text-shadow: 0 1px 1px rgba(255,255,255,0.8);
+            z-index: 1;
+        }
+        .flow-percentage {
+            text-align: right;
+            font-size: 14px;
+            color: #666;
+            font-weight: 500;
+        }
+        
+        /* 响应式调整 */
+        @media (max-width: 768px) {
+            .flow-header {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 5px;
+            }
+            .flow-level {
+                align-self: flex-start;
+            }
+            .flow-value {
+                font-size: 12px;
+                left: 10px;
+            }
+        }
+
+        /* ECharts图表控制栏样式 */
+        .chart-controls {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding: 15px;
+            background-color: #f8f9fa;
+            border-radius: 8px;
+            border: 1px solid #e9ecef;
+        }
+        .control-group {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .control-label {
+            font-size: 14px;
+            color: #495057;
+            font-weight: 500;
+        }
+        .chart-btn {
+            padding: 8px 15px;
+            background-color: #e9ecef;
+            border: 1px solid #ced4da;
+            border-radius: 4px;
+            color: #495057;
+            font-size: 13px;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        .chart-btn:hover {
+            background-color: #dee2e6;
+            border-color: #adb5bd;
+        }
+        .chart-btn.active {
+            background-color: #007bff;
+            border-color: #007bff;
+            color: white;
+        }
+        .sort-select {
+            padding: 8px 12px;
+            border: 1px solid #ced4da;
+            border-radius: 4px;
+            background-color: white;
+            color: #495057;
+            font-size: 13px;
+            cursor: pointer;
+        }
+        .sort-select:focus {
+            outline: none;
+            border-color: #007bff;
+            box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
+        }
+        
+        /* 图例样式 */
+        .chart-legend {
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            margin-top: 20px;
+            padding-top: 15px;
+            border-top: 1px solid #e9ecef;
+        }
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            font-size: 13px;
+            color: #495057;
+        }
+        
+        /* 数据表格样式 */
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+        }
+        .data-table th {
+            background-color: #e9f5ff;
+            padding: 12px 15px;
+            text-align: left;
+            font-weight: 600;
+            color: #333;
+            border-bottom: 2px solid #dee2e6;
+        }
+        .data-table td {
+            padding: 10px 15px;
+            border-bottom: 1px solid #e9ecef;
+        }
+        .data-table tr:hover {
+            background-color: #f8f9fa;
+        }
+        .level-badge {
+            display: inline-block;
+            padding: 3px 10px;
+            border-radius: 12px;
+            color: white;
+            font-size: 12px;
+            font-weight: 500;
+        }
+        
+        /* 响应式调整 */
+        @media (max-width: 768px) {
+            .chart-controls {
+                flex-direction: column;
+                align-items: stretch;
+                gap: 15px;
+            }
+            .control-group {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+            .chart-legend {
+                flex-direction: column;
+                gap: 10px;
+                align-items: center;
+            }
+        }
+    </style>
+    <!-- 引入图标库（增强视觉效果） -->
+    <link rel="stylesheet" href="https://cdn.bootcdn.net/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <!-- 顶部导航栏 -->
+    <div class="header">
+        <h1>城市交通预测与疏导系统</h1>
+        <div class="user-info">
+            <span>当前用户：{{ username }}（{{ '管理员' if role == 'admin' else '普通用户' }}）</span>
+            <a href="{{ url_for('logout') }}"><i class="fas fa-sign-out-alt"></i> 退出登录</a>
+        </div>
+    </div>
+
+    <!-- 提示信息 -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                <div class="flash-message">{{ message }}</div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+
+    <!-- 核心功能入口 -->
+    <div class="function-area">
+        <div class="function-card">
+            <i class="fas fa-chart-line"></i>
+            <h3>交通流量预测</h3>
+            <p>基于历史数据与 AI 模型预测路段拥堵状态及车速</p>
+            <a href="{{ url_for('predict') }}">进入功能 <i class="fas fa-arrow-right"></i></a>
+        </div>
+        <div class="function-card">
+            <i class="fas fa-traffic-light"></i>
+            <h3>拥堵疏导控制台</h3>
+            <p>自动生成疏导方案、区域协同分析、人工干预与策略回退</p>
+            <a href="{{ url_for('guidance') }}">进入功能 <i class="fas fa-arrow-right"></i></a>
+        </div>
+        <div class="function-card">
+            <i class="fas fa-tv"></i>
+            <h3>数字大屏</h3>
+            <p>城市交通流量预测与智能疏导指挥中心，可视化实时监控与决策</p>
+            <a href="{{ url_for('dashboard') }}">进入功能 <i class="fas fa-arrow-right"></i></a>
+        </div>
+        <div class="function-card">
+            <i class="fas fa-map-marked-alt"></i>
+            <h3>实时路况监控</h3>
+            <p>查看全城路段实时通行状态，基于高德地图实时数据</p>
+            <a href="{{ url_for('traffic') }}">进入功能 <i class="fas fa-arrow-right"></i></a>
+        </div>
+        <div class="function-card">
+            <i class="fas fa-map-marked-alt"></i>
+            <h3>交通仿真沙盘</h3>
+            <p>基于高德实时数据与LSTM预测的3D交通仿真与推演系统</p>
+            <a href="{{ url_for('sandbox') }}">进入功能 <i class="fas fa-arrow-right"></i></a>
+        </div>
+    </div>
+
+    <!-- 车流量ECharts可视化模块 -->
+    <div class="traffic-area">
+        <h2><i class="fas fa-car"></i> 历史车流量信息</h2>
+        <div class="update-time">最后更新时间：{{ current_time }}</div>
+        
+        <!-- 图表控制栏 -->
+        <div class="chart-controls">
+            <div class="control-group">
+                <span class="control-label">图表类型：</span>
+                <button class="chart-btn active" data-type="bar">
+                    <i class="fas fa-chart-bar"></i> 柱状图
+                </button>
+                <button class="chart-btn" data-type="line">
+                    <i class="fas fa-chart-line"></i> 折线图
+                </button>
+                <button class="chart-btn" data-type="pie">
+                    <i class="fas fa-chart-pie"></i> 饼图
+                </button>
+            </div>
+            <div class="control-group">
+                <span class="control-label">排序方式：</span>
+                <select class="sort-select">
+                    <option value="desc">流量从高到低</option>
+                    <option value="asc">流量从低到高</option>
+                    <option value="name">按路段名称</option>
+                </select>
+            </div>
+        </div>
+        
+        <!-- ECharts图表容器 -->
+        <div id="trafficFlowChart" style="width: 100%; height: 500px;"></div>
+        
+        <!-- 图例说明 -->
+        <div class="chart-legend">
+            <span class="legend-item"><i class="fas fa-square" style="color: #28a745"></i> 低流量 (<1000辆/小时)</span>
+            <span class="legend-item"><i class="fas fa-square" style="color: #ffc107"></i> 中流量 (1000-3000辆/小时)</span>
+            <span class="legend-item"><i class="fas fa-square" style="color: #dc3545"></i> 高流量 (>3000辆/小时)</span>
+        </div>
+        
+        <!-- 数据表格（备用显示） -->
+        <div class="data-table-container" style="margin-top: 20px; display: none;">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>路段名称</th>
+                        <th>车流量</th>
+                        <th>流量等级</th>
+                        <th>占比</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for traffic in traffic_flow_data %}
+                    <tr>
+                        <td>{{ traffic.road_name }}</td>
+                        <td>{{ traffic.flow_formatted }}</td>
+                        <td><span class="level-badge" style="background-color: {{ traffic.flow_color }}">{{ traffic.flow_level }}</span></td>
+                        <td>{{ traffic.flow_percentage }}%</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    
+    <!-- 引入ECharts库 -->
+    <script src="{{ url_for('static', filename='echarts.min.js') }}"></script>
+    
+    <script>
+        // 页面加载完成后初始化图表
+        document.addEventListener('DOMContentLoaded', function() {
+            // 获取后端传递的数据
+            const trafficData = [
+                {% for traffic in traffic_flow_data %}
+                {
+                    road_name: "{{ traffic.road_name }}",
+                    flow: {{ traffic.flow }},
+                    flow_formatted: "{{ traffic.flow_formatted }}",
+                    flow_level: "{{ traffic.flow_level }}",
+                    flow_color: "{{ traffic.flow_color }}",
+                    flow_percentage: {{ traffic.flow_percentage }}
+                },
+                {% endfor %}
+            ];
+            
+            // 初始化ECharts实例
+            const chartDom = document.getElementById('trafficFlowChart');
+            const chart = echarts.init(chartDom);
+            
+            // 当前图表类型和排序方式
+            let currentChartType = 'bar';
+            let currentSortOrder = 'desc';
+            
+            // 准备图表数据
+            function prepareChartData(data, sortOrder = 'desc') {
+                // 复制数据以避免修改原数组
+                let sortedData = [...data];
+                
+                // 根据排序方式排序
+                if (sortOrder === 'desc') {
+                    sortedData.sort((a, b) => b.flow - a.flow);
+                } else if (sortOrder === 'asc') {
+                    sortedData.sort((a, b) => a.flow - b.flow);
+                } else if (sortOrder === 'name') {
+                    sortedData.sort((a, b) => a.road_name.localeCompare(b.road_name, 'zh-CN'));
+                }
+                
+                return {
+                    roads: sortedData.map(item => item.road_name),
+                    flows: sortedData.map(item => item.flow),
+                    colors: sortedData.map(item => item.flow_color),
+                    levels: sortedData.map(item => item.flow_level),
+                    percentages: sortedData.map(item => item.flow_percentage),
+                    formatted: sortedData.map(item => item.flow_formatted)
+                };
+            }
+            
+            // 获取图表配置选项
+            function getChartOption(type, chartData) {
+                const baseOption = {
+                    backgroundColor: '#fff',
+                    tooltip: {
+                        trigger: 'axis',
+                        axisPointer: {
+                            type: 'shadow'
+                        },
+                        formatter: function(params) {
+                            const data = params[0];
+                            const index = data.dataIndex;
+                            return `
+                                <div style="font-weight: bold; margin-bottom: 5px;">${chartData.roads[index]}</div>
+                                <div>车流量：${chartData.formatted[index]}</div>
+                                <div>流量等级：<span style="color: ${chartData.colors[index]}">${chartData.levels[index]}</span></div>
+                                <div>占比：${chartData.percentages[index]}%</div>
+                            `;
+                        }
+                    },
+                    grid: {
+                        left: '3%',
+                        right: '4%',
+                        bottom: '10%',
+                        top: '10%',
+                        containLabel: true
+                    },
+                    xAxis: {
+                        type: 'category',
+                        data: chartData.roads,
+                        axisLabel: {
+                            rotate: 30,
+                            fontSize: 12
+                        },
+                        axisLine: {
+                            lineStyle: {
+                                color: '#ccc'
+                            }
+                        }
+                    },
+                    yAxis: {
+                        type: 'value',
+                        name: '车流量 (辆/小时)',
+                        nameTextStyle: {
+                            fontSize: 12,
+                            padding: [0, 0, 0, 10]
+                        },
+                        axisLine: {
+                            lineStyle: {
+                                color: '#ccc'
+                            }
+                        },
+                        splitLine: {
+                            lineStyle: {
+                                type: 'dashed',
+                                color: '#e0e0e0'
+                            }
+                        }
+                    }
+                };
+                
+                if (type === 'bar') {
+                    return {
+                        ...baseOption,
+                        title: {
+                            text: '路段车流量统计',
+                            left: 'center',
+                            textStyle: {
+                                fontSize: 16,
+                                fontWeight: 'normal'
+                            }
+                        },
+                        series: [{
+                            name: '车流量',
+                            type: 'bar',
+                            data: chartData.flows.map((flow, index) => ({
+                                value: flow,
+                                itemStyle: {
+                                    color: chartData.colors[index]
+                                }
+                            })),
+                            barWidth: '60%',
+                            label: {
+                                show: true,
+                                position: 'top',
+                                formatter: '{c}',
+                                fontSize: 12
+                            },
+                            itemStyle: {
+                                borderRadius: [4, 4, 0, 0]
+                            }
+                        }]
+                    };
+                } else if (type === 'line') {
+                    return {
+                        ...baseOption,
+                        title: {
+                            text: '路段车流量趋势',
+                            left: 'center',
+                            textStyle: {
+                                fontSize: 16,
+                                fontWeight: 'normal'
+                            }
+                        },
+                        series: [{
+                            name: '车流量',
+                            type: 'line',
+                            data: chartData.flows,
+                            smooth: true,
+                            symbol: 'circle',
+                            symbolSize: 8,
+                            lineStyle: {
+                                width: 3,
+                                color: '#007bff'
+                            },
+                            itemStyle: {
+                                color: '#007bff',
+                                borderColor: '#fff',
+                                borderWidth: 2
+                            },
+                            areaStyle: {
+                                color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+                                    { offset: 0, color: 'rgba(0, 123, 255, 0.3)' },
+                                    { offset: 1, color: 'rgba(0, 123, 255, 0.1)' }
+                                ])
+                            },
+                            label: {
+                                show: true,
+                                position: 'top',
+                                formatter: '{c}',
+                                fontSize: 12
+                            }
+                        }]
+                    };
+                } else if (type === 'pie') {
+                    return {
+                        title: {
+                            text: '路段车流量分布',
+                            left: 'center',
+                            textStyle: {
+                                fontSize: 16,
+                                fontWeight: 'normal'
+                            }
+                        },
+                        tooltip: {
+                            trigger: 'item',
+                            formatter: function(params) {
+                                return `
+                                    <div style="font-weight: bold; margin-bottom: 5px;">${params.name}</div>
+                                    <div>车流量：${params.data.formatted}</div>
+                                    <div>占比：${params.percent}%</div>
+                                    <div>流量等级：<span style="color: ${params.color}">${params.data.level}</span></div>
+                                `;
+                            }
+                        },
+                        legend: {
+                            orient: 'vertical',
+                            left: 'left',
+                            top: 'center',
+                            data: chartData.roads
+                        },
+                        series: [{
+                            name: '车流量',
+                            type: 'pie',
+                            radius: ['40%', '70%'],
+                            center: ['60%', '50%'],
+                            data: chartData.roads.map((road, index) => ({
+                                name: road,
+                                value: chartData.flows[index],
+                                formatted: chartData.formatted[index],
+                                level: chartData.levels[index],
+                                itemStyle: {
+                                    color: chartData.colors[index]
+                                }
+                            })),
+                            emphasis: {
+                                itemStyle: {
+                                    shadowBlur: 10,
+                                    shadowOffsetX: 0,
+                                    shadowColor: 'rgba(0, 0, 0, 0.5)'
+                                }
+                            },
+                            label: {
+                                formatter: '{b}: {d}%'
+                            }
+                        }]
+                    };
+                }
+                
+                return baseOption;
+            }
+            
+            // 更新图表
+            function updateChart() {
+                const chartData = prepareChartData(trafficData, currentSortOrder);
+                const option = getChartOption(currentChartType, chartData);
+                chart.setOption(option, true);
+            }
+            
+            // 初始化图表
+            updateChart();
+            
+            // 图表类型切换
+            document.querySelectorAll('.chart-btn').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    // 移除所有按钮的active类
+                    document.querySelectorAll('.chart-btn').forEach(b => {
+                        b.classList.remove('active');
+                    });
+                    
+                    // 为当前按钮添加active类
+                    this.classList.add('active');
+                    
+                    // 更新图表类型
+                    currentChartType = this.getAttribute('data-type');
+                    updateChart();
+                });
+            });
+            
+            // 排序方式切换
+            document.querySelector('.sort-select').addEventListener('change', function() {
+                currentSortOrder = this.value;
+                updateChart();
+            });
+            
+            // 窗口大小变化时重绘图表
+            window.addEventListener('resize', function() {
+                chart.resize();
+            });
+            
+            // 导出图表为图片
+            document.addEventListener('keydown', function(e) {
+                if (e.ctrlKey && e.key === 's') {
+                    e.preventDefault();
+                    const imgData = chart.getDataURL({
+                        type: 'png',
+                        pixelRatio: 2,
+                        backgroundColor: '#fff'
+                    });
+                    const link = document.createElement('a');
+                    link.href = imgData;
+                    link.download = '车流量统计图.png';
+                    link.click();
+                }
+            });
+        });
+    </script>
+</body>
+</html>

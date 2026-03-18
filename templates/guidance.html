@@ -1,0 +1,902 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>交通拥堵疏导控制台</title>
+    <link rel="stylesheet" href="https://cdn.bootcdn.net/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="/static/echarts.min.js"></script>
+    <style>
+        * { margin:0; padding:0; box-sizing:border-box; font-family:"Microsoft YaHei",Arial,sans-serif; }
+
+        body {
+            min-height: 100vh;
+            background: linear-gradient(135deg,#0a4fa6,#0077cc,#00a8e8);
+            padding: 24px 16px 40px;
+        }
+
+        /* 顶部导航 */
+        .topbar {
+            display: flex; align-items: center; justify-content: space-between;
+            margin-bottom: 24px;
+        }
+        .topbar h1 { color:#fff; font-size:20px; font-weight:700; }
+        .topbar h1 i { margin-right:8px; }
+        .btn-back {
+            color:#fff; text-decoration:none; font-size:14px;
+            background:rgba(255,255,255,.15); padding:7px 16px;
+            border-radius:20px; transition:background .2s;
+        }
+        .btn-back:hover { background:rgba(255,255,255,.28); }
+
+        /* 主内容区 */
+        .main {
+            max-width: 1400px;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: 420px 1fr;
+            gap: 20px;
+            align-items: start;
+        }
+        @media (max-width: 1000px) {
+            .main { grid-template-columns: 1fr; }
+        }
+
+        /* 卡片 */
+        .card {
+            background: #fff; border-radius: 14px;
+            box-shadow: 0 8px 32px rgba(0,0,0,.15);
+            padding: 20px 22px;
+            margin-bottom: 20px;
+        }
+        .card-title {
+            font-size: 14px; font-weight: 700; color: #1a1a2e;
+            margin-bottom: 14px; padding-bottom: 9px;
+            border-bottom: 2px solid #f0f4ff;
+            display: flex; align-items: center; gap: 8px;
+        }
+        .card-title i { color: #007bff; }
+
+        /* 表单组 */
+        .form-group { margin-bottom: 12px; }
+        .form-group label {
+            display: block; font-size: 13px; color: #555;
+            margin-bottom: 4px; font-weight: 600;
+        }
+        .form-group select,
+        .form-group input {
+            width: 100%; padding: 8px 11px;
+            border: 1.5px solid #dde3ec; border-radius: 8px;
+            font-size: 13px; color: #333; background: #f7f9fc;
+            outline: none; transition: border-color .2s, box-shadow .2s;
+        }
+        .form-group select:focus,
+        .form-group input:focus {
+            border-color: #007bff; background: #fff;
+            box-shadow: 0 0 0 3px rgba(0,123,255,.1);
+        }
+
+        /* 按钮 */
+        .btn {
+            padding: 10px 16px;
+            border: none; border-radius: 8px;
+            font-size: 13px; font-weight: 600; cursor: pointer;
+            transition: opacity .2s, transform .15s;
+            display: inline-flex; align-items: center; gap: 6px;
+        }
+        .btn-primary {
+            background: linear-gradient(135deg,#007bff,#0056e0);
+            color: #fff; box-shadow: 0 4px 15px rgba(0,123,255,.4);
+        }
+        .btn-success {
+            background: linear-gradient(135deg,#28a745,#1e7e34);
+            color: #fff; box-shadow: 0 4px 15px rgba(40,167,69,.4);
+        }
+        .btn-warning {
+            background: linear-gradient(135deg,#ffc107,#e0a800);
+            color: #fff; box-shadow: 0 4px 15px rgba(255,193,7,.4);
+        }
+        .btn-danger {
+            background: linear-gradient(135deg,#dc3545,#c82333);
+            color: #fff; box-shadow: 0 4px 15px rgba(220,53,69,.4);
+        }
+        .btn:hover { opacity:.9; transform:translateY(-1px); }
+        .btn:active { transform:translateY(0); }
+        .btn:disabled { opacity:.6; cursor:not-allowed; }
+
+        /* 疏导措施列表 */
+        .actions-list {
+            max-height: 300px; overflow-y: auto;
+            margin: 15px 0; border: 1px solid #eee; border-radius: 8px;
+        }
+        .action-item {
+            padding: 10px 12px; border-bottom: 1px solid #f5f5f5;
+            display: flex; align-items: start; gap: 10px;
+        }
+        .action-item:last-child { border-bottom: none; }
+        .action-icon {
+            width: 24px; height: 24px; border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 12px; color: #fff; flex-shrink: 0;
+        }
+        .action-icon.low { background: #6c757d; }
+        .action-icon.medium { background: #ffc107; }
+        .action-icon.high { background: #fd7e14; }
+        .action-icon.critical { background: #dc3545; }
+        .action-content { flex: 1; }
+        .action-title {
+            font-size: 13px; font-weight: 600; color: #333;
+            margin-bottom: 3px;
+        }
+        .action-detail {
+            font-size: 12px; color: #666; line-height: 1.4;
+        }
+        .action-effect {
+            font-size: 11px; color: #888; margin-top: 4px;
+            font-style: italic;
+        }
+
+        /* 区域协同分析 */
+        .region-analysis {
+            display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 10px; margin: 15px 0;
+        }
+        .region-item {
+            background: #f8f9fa; border-radius: 8px; padding: 10px;
+            border-left: 4px solid #007bff;
+        }
+        .region-item.warning { border-left-color: #ffc107; }
+        .region-item.danger { border-left-color: #dc3545; }
+        .region-road { font-size: 12px; font-weight: 600; color: #333; }
+        .region-stats { font-size: 11px; color: #666; margin-top: 4px; }
+
+        /* 历史方案时间轴 */
+        .timeline {
+            margin: 15px 0; position: relative;
+        }
+        .timeline::before {
+            content: ''; position: absolute; left: 12px; top: 0;
+            width: 2px; height: 100%; background: #e9ecef;
+        }
+        .timeline-item {
+            position: relative; padding-left: 30px; margin-bottom: 15px;
+        }
+        .timeline-dot {
+            position: absolute; left: 6px; top: 4px;
+            width: 14px; height: 14px; border-radius: 50%;
+            background: #007bff; border: 2px solid #fff;
+        }
+        .timeline-dot.active { background: #28a745; }
+        .timeline-dot.reverted { background: #dc3545; }
+        .timeline-content {
+            background: #f8f9fa; border-radius: 6px; padding: 8px 10px;
+        }
+        .timeline-time {
+            font-size: 11px; color: #888; margin-bottom: 3px;
+        }
+        .timeline-desc {
+            font-size: 12px; color: #333;
+        }
+
+        /* 操作日志 */
+        .log-list {
+            max-height: 200px; overflow-y: auto;
+            margin: 10px 0; border: 1px solid #eee; border-radius: 6px;
+        }
+        .log-item {
+            padding: 8px 10px; border-bottom: 1px solid #f5f5f5;
+            font-size: 11px; color: #666;
+        }
+        .log-item:last-child { border-bottom: none; }
+        .log-action { font-weight: 600; color: #333; }
+
+        /* 图表容器 */
+        .chart-container {
+            width: 100%; height: 300px; margin-top: 10px;
+            border: 1px solid #eee; border-radius: 8px;
+            overflow: hidden;
+        }
+
+        /* 状态标签 */
+        .status-badge {
+            display: inline-flex; align-items: center; gap: 6px;
+            padding: 4px 10px; border-radius: 20px;
+            font-size: 12px; font-weight: 600; color: #fff;
+        }
+        .status-1 { background: #28a745; }
+        .status-2 { background: #ffc107; }
+        .status-3 { background: #fd7e14; }
+        .status-4 { background: #dc3545; }
+
+        /* 加载动画 */
+        .spinner {
+            display: none; width: 18px; height: 18px;
+            border: 2px solid rgba(255,255,255,.4);
+            border-top-color: #fff; border-radius: 50%;
+            animation: spin .7s linear infinite;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+    </style>
+</head>
+<body>
+
+<!-- 顶部栏 -->
+<div class="topbar">
+    <h1><i class="fas fa-traffic-light"></i>交通拥堵疏导控制台</h1>
+    <a href="{{ url_for('index') }}" class="btn-back">
+        <i class="fas fa-arrow-left"></i> 返回主页
+    </a>
+</div>
+
+<div class="main">
+    <!-- ══════════════ 左侧：疏导控制 ══════════════ -->
+    <div>
+        <!-- 路段选择与预测 -->
+        <div class="card">
+            <div class="card-title">
+                <i class="fas fa-road"></i> 路段选择与预测
+            </div>
+            
+            <div class="form-group">
+                <label><i class="fas fa-map-marker-alt"></i> 目标路段</label>
+                <select id="roadSelect">
+                    <option value="">-- 请选择道路 --</option>
+                    {% for r in road_list %}
+                    <option value="{{ r }}">{{ r }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label><i class="fas fa-chart-line"></i> 拥堵等级</label>
+                <select id="statusSelect">
+                    <option value="1">1 - 畅通</option>
+                    <option value="2">2 - 缓行</option>
+                    <option value="3">3 - 拥堵</option>
+                    <option value="4">4 - 严重拥堵</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label><i class="fas fa-clock"></i> 预测小时 (0-23)</label>
+                <input type="number" id="hourInput" min="0" max="23" value="8">
+            </div>
+
+            <div style="display: flex; gap: 10px; margin-top: 15px;">
+                <button class="btn btn-primary" onclick="generateGuidance()" id="generateBtn">
+                    <span id="generateText"><i class="fas fa-bolt"></i> 生成疏导建议</span>
+                    <div class="spinner" id="generateSpinner"></div>
+                </button>
+                <button class="btn btn-success" onclick="analyzeRegion()" id="regionBtn">
+                    <span id="regionText"><i class="fas fa-sitemap"></i> 区域协同分析</span>
+                    <div class="spinner" id="regionSpinner"></div>
+                </button>
+            </div>
+        </div>
+
+        <!-- 自动生成的疏导建议 -->
+        <div class="card" id="guidanceCard" style="display: none;">
+            <div class="card-title">
+                <i class="fas fa-lightbulb"></i> 自动疏导建议
+                <span class="status-badge" id="currentStatusBadge" style="margin-left: auto;"></span>
+            </div>
+            
+            <div id="actionsContainer" class="actions-list"></div>
+            
+            <div style="display: flex; gap: 8px; margin-top: 15px;">
+                <button class="btn btn-success" onclick="activatePlan()" id="activateBtn">
+                    <i class="fas fa-play"></i> 激活方案
+                </button>
+                <button class="btn btn-warning" onclick="showManualForm()">
+                    <i class="fas fa-edit"></i> 人工干预
+                </button>
+                <button class="btn btn-danger" onclick="revertPlan()" id="revertBtn" style="display: none;">
+                    <i class="fas fa-undo"></i> 回退方案
+                </button>
+            </div>
+        </div>
+
+        <!-- 人工干预表单 -->
+        <div class="card" id="manualCard" style="display: none;">
+            <div class="card-title">
+                <i class="fas fa-user-edit"></i> 人工干预
+            </div>
+            
+            <div class="form-group">
+                <label>措施类型</label>
+                <select id="actionType">
+                    <option value="signal_adjust">信号调整</option>
+                    <option value="traffic_control">流量控制</option>
+                    <option value="alternative_route">替代路线</option>
+                    <option value="police_dispatch">警力调度</option>
+                    <option value="forced_diversion">强制绕行</option>
+                    <option value="emergency_plan">应急预案</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label>措施详情</label>
+                <textarea id="actionDetail" rows="3" style="width:100%; padding:8px; border:1.5px solid #dde3ec; border-radius:8px;" placeholder="请输入具体措施描述..."></textarea>
+            </div>
+
+            <div class="form-group">
+                <label>优先级</label>
+                <select id="actionPriority">
+                    <option value="low">低</option>
+                    <option value="medium">中</option>
+                    <option value="high">高</option>
+                    <option value="critical">紧急</option>
+                </select>
+            </div>
+
+            <div style="display: flex; gap: 8px;">
+                <button class="btn btn-primary" onclick="addManualAction()">
+                    <i class="fas fa-plus"></i> 添加措施
+                </button>
+                <button class="btn btn-success" onclick="submitManualPlan()">
+                    <i class="fas fa-check"></i> 提交方案
+                </button>
+                <button class="btn btn-warning" onclick="hideManualForm()">
+                    <i class="fas fa-times"></i> 取消
+                </button>
+            </div>
+
+            <div id="manualActionsList" style="margin-top: 15px;"></div>
+        </div>
+    </div>
+
+    <!-- ══════════════ 右侧：可视化与分析 ══════════════ -->
+    <div>
+        <!-- 区域协同路网图 -->
+        <div class="card">
+            <div class="card-title">
+                <i class="fas fa-sitemap"></i> 区域协同路网分析
+            </div>
+            
+            <div id="regionAnalysisContainer" style="display: none;">
+                <div class="region-analysis" id="regionAnalysisGrid"></div>
+                <div id="diversionStrategy" style="margin-top: 15px;"></div>
+            </div>
+            
+            <div id="regionPlaceholder" style="text-align: center; padding: 40px 20px; color: #999;">
+                <i class="fas fa-project-diagram" style="font-size: 48px; margin-bottom: 15px;"></i>
+                <p>选择道路并点击"区域协同分析"查看路网关系</p>
+            </div>
+        </div>
+
+        <!-- 历史方案时间轴 -->
+        <div class="card">
+            <div class="card-title">
+                <i class="fas fa-history"></i> 历史方案时间轴
+            </div>
+            
+            <div class="timeline" id="historyTimeline">
+                <div style="text-align: center; padding: 30px; color: #999;">
+                    <i class="fas fa-clock" style="font-size: 36px; margin-bottom: 10px;"></i>
+                    <p>暂无历史方案记录</p>
+                </div>
+            </div>
+            
+            <button class="btn" onclick="loadHistory()" style="width:100%; margin-top:10px;">
+                <i class="fas fa-sync-alt"></i> 刷新历史记录
+            </button>
+        </div>
+
+        <!-- 操作日志 -->
+        <div class="card">
+            <div class="card-title">
+                <i class="fas fa-clipboard-list"></i> 操作日志
+            </div>
+            
+            <div class="log-list" id="logList">
+                <div style="text-align: center; padding: 20px; color: #999;">
+                    <i class="fas fa-list-alt" style="font-size: 24px; margin-bottom: 10px;"></i>
+                    <p>暂无操作日志</p>
+                </div>
+            </div>
+            
+            <button class="btn" onclick="loadLogs()" style="width:100%; margin-top:10px;">
+                <i class="fas fa-sync-alt"></i> 刷新日志
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- JavaScript -->
+<script>
+    let currentPlanId = null;
+    let currentRoad = null;
+    let manualActions = [];
+
+    // 显示/隐藏加载状态
+    function showLoading(btnId, spinnerId, textId) {
+        document.getElementById(btnId).disabled = true;
+        document.getElementById(spinnerId).style.display = 'inline-block';
+        document.getElementById(textId).style.opacity = '0.6';
+    }
+    function hideLoading(btnId, spinnerId, textId) {
+        document.getElementById(btnId).disabled = false;
+        document.getElementById(spinnerId).style.display = 'none';
+        document.getElementById(textId).style.opacity = '1';
+    }
+
+    // 显示消息
+    function showMessage(type, text) {
+        const colors = {
+            success: '#28a745',
+            error: '#dc3545',
+            warning: '#ffc107',
+            info: '#17a2b8'
+        };
+        const el = document.createElement('div');
+        el.style.cssText = `
+            position: fixed; top: 20px; right: 20px; z-index: 9999;
+            padding: 12px 20px; border-radius: 8px; color: #fff;
+            font-size: 13px; font-weight: 600; box-shadow: 0 4px 12px rgba(0,0,0,.2);
+            background: ${colors[type] || colors.info}; transition: transform .3s;
+            transform: translateX(120%); max-width: 300px;
+        `;
+        el.innerHTML = `<i class="fas fa-${type === 'success' ? 'check-circle' : type === 'error' ? 'exclamation-circle' : 'info-circle'}"></i> ${text}`;
+        document.body.appendChild(el);
+        setTimeout(() => el.style.transform = 'translateX(0)', 10);
+        setTimeout(() => {
+            el.style.transform = 'translateX(120%)';
+            setTimeout(() => el.remove(), 300);
+        }, 4000);
+    }
+
+    // 生成疏导建议
+    async function generateGuidance() {
+        const road = document.getElementById('roadSelect').value;
+        const status = document.getElementById('statusSelect').value;
+        const hour = document.getElementById('hourInput').value;
+        
+        if (!road) {
+            showMessage('error', '请先选择道路');
+            return;
+        }
+        
+        showLoading('generateBtn', 'generateSpinner', 'generateText');
+        
+        try {
+            const resp = await fetch('/api/guidance/generate', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ road, status, hour })
+            });
+            const data = await resp.json();
+            
+            if (data.success) {
+                currentPlanId = data.plan_id;
+                currentRoad = road;
+                
+                // 显示疏导建议卡片
+                document.getElementById('guidanceCard').style.display = 'block';
+                
+                // 更新状态标签
+                const statusLabels = ['畅通', '缓行', '拥堵', '严重拥堵'];
+                const statusColors = ['status-1', 'status-2', 'status-3', 'status-4'];
+                document.getElementById('currentStatusBadge').innerHTML = `
+                    <i class="fas fa-${status == 1 ? 'circle-check' : status == 2 ? 'triangle-exclamation' : status == 3 ? 'circle-exclamation' : 'ban'}"></i>
+                    ${statusLabels[status-1]}
+                `;
+                document.getElementById('currentStatusBadge').className = `status-badge ${statusColors[status-1]}`;
+                
+                // 显示措施列表
+                const actionsContainer = document.getElementById('actionsContainer');
+                actionsContainer.innerHTML = '';
+                
+                data.actions.forEach(action => {
+                    const priorityIcons = {
+                        low: 'fa-arrow-down',
+                        medium: 'fa-equals',
+                        high: 'fa-arrow-up',
+                        critical: 'fa-exclamation-triangle'
+                    };
+                    const priorityColors = {
+                        low: 'low',
+                        medium: 'medium',
+                        high: 'high',
+                        critical: 'critical'
+                    };
+                    
+                    const item = document.createElement('div');
+                    item.className = 'action-item';
+                    item.innerHTML = `
+                        <div class="action-icon ${priorityColors[action.priority]}">
+                            <i class="fas ${priorityIcons[action.priority]}"></i>
+                        </div>
+                        <div class="action-content">
+                            <div class="action-title">${action.action_type === 'signal_adjust' ? '信号调整' :
+                                action.action_type === 'info_publish' ? '信息发布' :
+                                action.action_type === 'traffic_control' ? '流量控制' :
+                                action.action_type === 'alternative_route' ? '替代路线' :
+                                action.action_type === 'police_dispatch' ? '警力调度' :
+                                action.action_type === 'forced_diversion' ? '强制绕行' :
+                                action.action_type === 'emergency_plan' ? '应急预案' :
+                                action.action_type === 'public_notice' ? '公众通知' :
+                                action.action_type === 'monitor' ? '监控' : '其他措施'}</div>
+                            <div class="action-detail">${action.detail}</div>
+                            <div class="action-effect">预计效果：${action.estimated_effect}</div>
+                        </div>
+                    `;
+                    actionsContainer.appendChild(item);
+                });
+                
+                // 显示激活按钮
+                document.getElementById('activateBtn').style.display = 'inline-flex';
+                document.getElementById('revertBtn').style.display = 'none';
+                
+                showMessage('success', `已生成 ${road} 的疏导建议`);
+                loadHistory();
+            } else {
+                showMessage('error', data.msg || '生成失败');
+            }
+        } catch (err) {
+            showMessage('error', '网络错误，请稍后重试');
+            console.error(err);
+        } finally {
+            hideLoading('generateBtn', 'generateSpinner', 'generateText');
+        }
+    }
+
+    // 区域协同分析
+    async function analyzeRegion() {
+        const road = document.getElementById('roadSelect').value;
+        if (!road) {
+            showMessage('error', '请先选择道路');
+            return;
+        }
+        
+        showLoading('regionBtn', 'regionSpinner', 'regionText');
+        
+        try {
+            const resp = await fetch(`/api/guidance/region?road=${encodeURIComponent(road)}`);
+            const data = await resp.json();
+            
+            if (data.success) {
+                // 隐藏占位符，显示分析结果
+                document.getElementById('regionPlaceholder').style.display = 'none';
+                document.getElementById('regionAnalysisContainer').style.display = 'block';
+                
+                // 更新区域分析网格
+                const grid = document.getElementById('regionAnalysisGrid');
+                grid.innerHTML = '';
+                
+                data.region_analysis.forEach(item => {
+                    const el = document.createElement('div');
+                    el.className = `region-item ${item.current_load_percent > 85 ? 'danger' : item.current_load_percent > 70 ? 'warning' : ''}`;
+                    el.innerHTML = `
+                        <div class="region-road">${item.road}</div>
+                        <div class="region-stats">
+                            <div>类型：${item.type}</div>
+                            <div>容量：${item.capacity} 辆/小时</div>
+                            <div>当前负载：${item.current_load_percent}%</div>
+                            <div>剩余容量：${item.remaining_capacity} 辆/小时</div>
+                            <div>${item.can_accept_diversion ? '✅ 可接受分流' : '❌ 容量不足'}</div>
+                        </div>
+                    `;
+                    grid.appendChild(el);
+                });
+                
+                // 显示分流策略
+                const strategyDiv = document.getElementById('diversionStrategy');
+                if (data.diversion_strategy && data.diversion_strategy.length > 0) {
+                    strategyDiv.innerHTML = `
+                        <div style="background: #f0f7ff; padding: 12px; border-radius: 8px;">
+                            <div style="font-weight: 600; color: #007bff; margin-bottom: 8px;">
+                                <i class="fas fa-share-alt"></i> 分流策略建议
+                            </div>
+                            <div style="font-size: 12px; color: #333;">
+                                ${data.diversion_strategy.map(s => 
+                                    `<div style="margin-bottom: 4px;">
+                                        <strong>${s.road}</strong>: 分流 ${s.suggested_diversion} 辆车 (${s.percent}%)
+                                    </div>`
+                                ).join('')}
+                            </div>
+                            <div style="margin-top: 8px; font-size: 11px; color: #666;">
+                                <i class="fas fa-info-circle"></i> ${data.recommendation}
+                            </div>
+                        </div>
+                    `;
+                } else {
+                    strategyDiv.innerHTML = `
+                        <div style="background: #fff3cd; padding: 12px; border-radius: 8px; color: #856404;">
+                            <i class="fas fa-exclamation-triangle"></i> ${data.recommendation}
+                        </div>
+                    `;
+                }
+                
+                showMessage('success', `已完成 ${road} 的区域协同分析`);
+            } else {
+                showMessage('error', data.msg || '分析失败');
+            }
+        } catch (err) {
+            showMessage('error', '网络错误，请稍后重试');
+            console.error(err);
+        } finally {
+            hideLoading('regionBtn', 'regionSpinner', 'regionText');
+        }
+    }
+
+    // 激活方案
+    async function activatePlan() {
+        if (!currentPlanId) {
+            showMessage('error', '请先生成疏导建议');
+            return;
+        }
+        
+        try {
+            const resp = await fetch(`/api/guidance/activate/${currentPlanId}`, {
+                method: 'POST'
+            });
+            const data = await resp.json();
+            
+            if (data.success) {
+                showMessage('success', data.msg);
+                document.getElementById('revertBtn').style.display = 'inline-flex';
+                loadHistory();
+                loadLogs();
+            } else {
+                showMessage('error', data.msg || '激活失败');
+            }
+        } catch (err) {
+            showMessage('error', '网络错误，请稍后重试');
+            console.error(err);
+        }
+    }
+
+    // 回退方案
+    async function revertPlan() {
+        if (!currentPlanId) {
+            showMessage('error', '没有可回退的方案');
+            return;
+        }
+        
+        try {
+            const resp = await fetch(`/api/guidance/revert/${currentPlanId}`, {
+                method: 'POST'
+            });
+            const data = await resp.json();
+            
+            if (data.success) {
+                showMessage('success', data.msg);
+                document.getElementById('revertBtn').style.display = 'none';
+                loadHistory();
+                loadLogs();
+            } else {
+                showMessage('error', data.msg || '回退失败');
+            }
+        } catch (err) {
+            showMessage('error', '网络错误，请稍后重试');
+            console.error(err);
+        }
+    }
+
+    // 显示人工干预表单
+    function showManualForm() {
+        document.getElementById('manualCard').style.display = 'block';
+        document.getElementById('manualActionsList').innerHTML = '';
+        manualActions = [];
+    }
+
+    // 隐藏人工干预表单
+    function hideManualForm() {
+        document.getElementById('manualCard').style.display = 'none';
+    }
+
+    // 添加人工措施
+    function addManualAction() {
+        const type = document.getElementById('actionType').value;
+        const detail = document.getElementById('actionDetail').value.trim();
+        const priority = document.getElementById('actionPriority').value;
+        
+        if (!detail) {
+            showMessage('error', '请输入措施详情');
+            return;
+        }
+        
+        const action = {
+            action_type: type,
+            detail: detail,
+            priority: priority,
+            estimated_effect: '待评估'
+        };
+        
+        manualActions.push(action);
+        updateManualActionsList();
+        
+        // 清空表单
+        document.getElementById('actionDetail').value = '';
+    }
+
+    // 更新人工措施列表
+    function updateManualActionsList() {
+        const list = document.getElementById('manualActionsList');
+        list.innerHTML = '';
+        
+        if (manualActions.length === 0) {
+            list.innerHTML = '<div style="text-align:center;color:#999;padding:10px;">暂无措施</div>';
+            return;
+        }
+        
+        manualActions.forEach((action, index) => {
+            const div = document.createElement('div');
+            div.className = 'action-item';
+            div.innerHTML = `
+                <div class="action-icon ${action.priority}">
+                    <i class="fas fa-${action.priority === 'critical' ? 'exclamation-triangle' : 'circle'}"></i>
+                </div>
+                <div class="action-content">
+                    <div class="action-title">${action.action_type === 'signal_adjust' ? '信号调整' :
+                        action.action_type === 'traffic_control' ? '流量控制' :
+                        action.action_type === 'alternative_route' ? '替代路线' :
+                        action.action_type === 'police_dispatch' ? '警力调度' :
+                        action.action_type === 'forced_diversion' ? '强制绕行' :
+                        action.action_type === 'emergency_plan' ? '应急预案' : '其他措施'}</div>
+                    <div class="action-detail">${action.detail}</div>
+                    <div class="action-effect">优先级：${action.priority === 'low' ? '低' : action.priority === 'medium' ? '中' : action.priority === 'high' ? '高' : '紧急'}</div>
+                </div>
+                <button onclick="removeManualAction(${index})" style="background:none;border:none;color:#dc3545;cursor:pointer;">
+                    <i class="fas fa-times"></i>
+                </button>
+            `;
+            list.appendChild(div);
+        });
+    }
+
+    // 移除人工措施
+    function removeManualAction(index) {
+        manualActions.splice(index, 1);
+        updateManualActionsList();
+    }
+
+    // 提交人工方案
+    async function submitManualPlan() {
+        const road = document.getElementById('roadSelect').value;
+        const status = document.getElementById('statusSelect').value;
+        
+        if (!road) {
+            showMessage('error', '请先选择道路');
+            return;
+        }
+        
+        if (manualActions.length === 0) {
+            showMessage('error', '请至少添加一项措施');
+            return;
+        }
+        
+        try {
+            const resp = await fetch('/api/guidance/manual', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    road: road,
+                    status: status,
+                    actions: manualActions
+                })
+            });
+            const data = await resp.json();
+            
+            if (data.success) {
+                showMessage('success', '人工疏导方案已创建');
+                currentPlanId = data.plan_id;
+                hideManualForm();
+                loadHistory();
+                loadLogs();
+            } else {
+                showMessage('error', data.msg || '提交失败');
+            }
+        } catch (err) {
+            showMessage('error', '网络错误，请稍后重试');
+            console.error(err);
+        }
+    }
+
+    // 加载历史方案
+    async function loadHistory() {
+        const road = document.getElementById('roadSelect').value;
+        const url = road ? `/api/guidance/history?road=${encodeURIComponent(road)}&limit=5` : '/api/guidance/history?limit=5';
+        
+        try {
+            const resp = await fetch(url);
+            const data = await resp.json();
+            
+            const timeline = document.getElementById('historyTimeline');
+            
+            if (!data.success || data.plans.length === 0) {
+                timeline.innerHTML = `
+                    <div style="text-align: center; padding: 30px; color: #999;">
+                        <i class="fas fa-clock" style="font-size: 36px; margin-bottom: 10px;"></i>
+                        <p>暂无历史方案记录</p>
+                    </div>
+                `;
+                return;
+            }
+            
+            timeline.innerHTML = '';
+            
+            data.plans.forEach(plan => {
+                const item = document.createElement('div');
+                item.className = 'timeline-item';
+                
+                const statusLabels = ['畅通', '缓行', '拥堵', '严重拥堵'];
+                const statusColors = ['#28a745', '#ffc107', '#fd7e14', '#dc3545'];
+                
+                const time = new Date(plan.created_at).toLocaleString('zh-CN');
+                const actionCount = plan.actions ? plan.actions.length : 0;
+                
+                item.innerHTML = `
+                    <div class="timeline-dot ${plan.is_active ? 'active' : plan.reverted_at ? 'reverted' : ''}"></div>
+                    <div class="timeline-content">
+                        <div class="timeline-time">${time} • ${plan.plan_type === 'auto' ? '自动生成' : '人工创建'} • ${plan.operator}</div>
+                        <div class="timeline-desc">
+                            <strong>${plan.road}</strong> - ${statusLabels[plan.status-1]}
+                            <span style="color:${statusColors[plan.status-1]}; font-weight:600;"> (${actionCount} 项措施)</span>
+                            ${plan.is_active ? '<span style="color:#28a745; font-weight:600;"> • 已激活</span>' : ''}
+                            ${plan.reverted_at ? '<span style="color:#dc3545; font-weight:600;"> • 已回退</span>' : ''}
+                        </div>
+                    </div>
+                `;
+                timeline.appendChild(item);
+            });
+        } catch (err) {
+            console.error('加载历史失败:', err);
+        }
+    }
+
+    // 加载操作日志
+    async function loadLogs() {
+        const planId = currentPlanId;
+        const url = planId ? `/api/guidance/logs?plan_id=${planId}&limit=10` : '/api/guidance/logs?limit=10';
+        
+        try {
+            const resp = await fetch(url);
+            const data = await resp.json();
+            
+            const logList = document.getElementById('logList');
+            
+            if (!data.success || data.logs.length === 0) {
+                logList.innerHTML = `
+                    <div style="text-align: center; padding: 20px; color: #999;">
+                        <i class="fas fa-list-alt" style="font-size: 24px; margin-bottom: 10px;"></i>
+                        <p>暂无操作日志</p>
+                    </div>
+                `;
+                return;
+            }
+            
+            logList.innerHTML = '';
+            
+            data.logs.forEach(log => {
+                const item = document.createElement('div');
+                item.className = 'log-item';
+                
+                const time = new Date(log.created_at).toLocaleString('zh-CN');
+                const actionText = log.action === 'generate' ? '生成方案' :
+                                 log.action === 'create' ? '创建方案' :
+                                 log.action === 'activate' ? '激活方案' :
+                                 log.action === 'revert' ? '回退方案' :
+                                 log.action === 'modify' ? '修改方案' : log.action;
+                
+                item.innerHTML = `
+                    <div><span class="log-action">${actionText}</span> • ${log.operator}</div>
+                    <div style="font-size: 10px; color: #888; margin-top: 2px;">${time}</div>
+                    ${log.note ? `<div style="font-size: 10px; color: #666; margin-top: 2px;">备注: ${log.note}</div>` : ''}
+                `;
+                logList.appendChild(item);
+            });
+        } catch (err) {
+            console.error('加载日志失败:', err);
+        }
+    }
+
+    // 页面加载时初始化
+    document.addEventListener('DOMContentLoaded', function() {
+        loadHistory();
+        loadLogs();
+    });
+</script>
+
+</body>
+</html>

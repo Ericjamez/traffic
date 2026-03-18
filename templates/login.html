@@ -1,0 +1,433 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>城市交通预测与疏导系统 - 登录</title>
+    <link rel="stylesheet" href="https://cdn.bootcdn.net/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: "Microsoft YaHei", Arial, sans-serif;
+        }
+
+        body {
+            min-height: 100vh;
+            background: url("{{ url_for('static', filename='image/login5.jpg') }}") center center / cover no-repeat fixed;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            overflow: hidden;
+        }
+
+        /* 背景遮罩（提升卡片可读性） */
+        body::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: rgba(0, 30, 80, 0.45);
+            z-index: 0;
+        }
+
+        /* 卡片容器 */
+        .login-card {
+            background: #ffffff;
+            border-radius: 16px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.2);
+            width: 420px;
+            padding: 50px 45px 40px;
+            position: relative;
+            z-index: 1;
+            animation: fadeInUp 0.5s ease;
+        }
+
+        @keyframes fadeInUp {
+            from { opacity: 0; transform: translateY(30px); }
+            to   { opacity: 1; transform: translateY(0); }
+        }
+
+        /* 顶部 Logo 区域 */
+        .logo-area {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .logo-icon {
+            width: 70px;
+            height: 70px;
+            background: linear-gradient(135deg, #007bff, #00a8e8);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 16px;
+            box-shadow: 0 8px 20px rgba(0, 123, 255, 0.35);
+        }
+        .logo-icon i {
+            font-size: 32px;
+            color: #ffffff;
+        }
+        .logo-area h1 {
+            font-size: 20px;
+            color: #1a1a2e;
+            font-weight: 700;
+            line-height: 1.4;
+        }
+        .logo-area p {
+            font-size: 13px;
+            color: #888;
+            margin-top: 5px;
+        }
+
+        /* Flash 消息 */
+        .flash-msg {
+            padding: 10px 14px;
+            border-radius: 8px;
+            font-size: 13.5px;
+            margin-bottom: 18px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .flash-msg.error {
+            background-color: #fff2f2;
+            color: #d93025;
+            border: 1px solid #ffd0cc;
+        }
+        .flash-msg.success {
+            background-color: #f0fff4;
+            color: #1a7a3a;
+            border: 1px solid #b7efc5;
+        }
+        .flash-msg.warning {
+            background-color: #fffbf0;
+            color: #a07800;
+            border: 1px solid #ffe082;
+        }
+
+        /* 表单组 */
+        .form-group {
+            margin-bottom: 20px;
+        }
+        .form-group label {
+            display: block;
+            font-size: 14px;
+            color: #444;
+            margin-bottom: 7px;
+            font-weight: 500;
+        }
+        .input-wrapper {
+            position: relative;
+        }
+        .input-wrapper .input-icon {
+            position: absolute;
+            left: 14px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #aaa;
+            font-size: 15px;
+        }
+        .input-wrapper input {
+            width: 100%;
+            padding: 11px 14px 11px 40px;
+            border: 1.5px solid #dde3ec;
+            border-radius: 8px;
+            font-size: 14.5px;
+            color: #333;
+            background: #f7f9fc;
+            transition: border-color 0.25s, box-shadow 0.25s, background 0.25s;
+            outline: none;
+        }
+        .input-wrapper input:focus {
+            border-color: #007bff;
+            background: #fff;
+            box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.12);
+        }
+        .input-wrapper input.input-error {
+            border-color: #d93025;
+        }
+
+        /* 密码显示/隐藏 */
+        .toggle-pwd {
+            position: absolute;
+            right: 13px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #aaa;
+            cursor: pointer;
+            font-size: 15px;
+            transition: color 0.2s;
+        }
+        .toggle-pwd:hover {
+            color: #007bff;
+        }
+
+        /* 记住我 + 忘记密码 */
+        .form-options {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 24px;
+        }
+        .remember-me {
+            display: flex;
+            align-items: center;
+            gap: 7px;
+            font-size: 13.5px;
+            color: #555;
+            cursor: pointer;
+            user-select: none;
+        }
+        .remember-me input[type="checkbox"] {
+            width: 16px;
+            height: 16px;
+            accent-color: #007bff;
+            cursor: pointer;
+        }
+        .forgot-password {
+            font-size: 13.5px;
+            color: #007bff;
+            text-decoration: none;
+            font-weight: 500;
+        }
+        .forgot-password:hover {
+            text-decoration: underline;
+        }
+
+        /* 登录按钮 */
+        .btn-login {
+            width: 100%;
+            padding: 13px;
+            background: linear-gradient(135deg, #007bff, #0056e0);
+            color: #fff;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: opacity 0.2s, transform 0.15s, box-shadow 0.2s;
+            box-shadow: 0 4px 15px rgba(0, 123, 255, 0.4);
+            letter-spacing: 0.5px;
+        }
+        .btn-login:hover {
+            opacity: 0.92;
+            transform: translateY(-1px);
+            box-shadow: 0 6px 20px rgba(0, 123, 255, 0.5);
+        }
+        .btn-login:active {
+            transform: translateY(0);
+        }
+
+        /* 底部链接 */
+        .footer-link {
+            text-align: center;
+            margin-top: 22px;
+            font-size: 13.5px;
+            color: #888;
+        }
+        .footer-link a {
+            color: #007bff;
+            text-decoration: none;
+            font-weight: 500;
+        }
+        .footer-link a:hover {
+            text-decoration: underline;
+        }
+
+        /* 错误提示文字 */
+        .field-error {
+            font-size: 12px;
+            color: #d93025;
+            margin-top: 5px;
+            display: none;
+        }
+        .field-error.show {
+            display: block;
+        }
+    </style>
+</head>
+<body>
+    <div class="login-card">
+        <!-- Logo 区域 -->
+        <div class="logo-area">
+            <div class="logo-icon">
+                <i class="fas fa-traffic-light"></i>
+            </div>
+            <h1>城市交通预测与疏导系统</h1>
+            <p>欢迎登录，请输入您的账号信息</p>
+        </div>
+
+        <!-- Flash 消息 -->
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="flash-msg {{ category }}">
+                        {% if category == 'error' %}
+                            <i class="fas fa-circle-xmark"></i>
+                        {% elif category == 'success' %}
+                            <i class="fas fa-circle-check"></i>
+                        {% else %}
+                            <i class="fas fa-triangle-exclamation"></i>
+                        {% endif %}
+                        {{ message }}
+                    </div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
+        <!-- 登录表单 -->
+        <form method="POST" id="loginForm" novalidate>
+            <!-- 用户名/邮箱 -->
+            <div class="form-group">
+                <label for="username"><i class="fas fa-user" style="color:#007bff;margin-right:5px;"></i>用户名/邮箱</label>
+                <div class="input-wrapper">
+                    <i class="fas fa-user input-icon"></i>
+                    <input
+                        type="text"
+                        id="username"
+                        name="username"
+                        placeholder="请输入用户名或邮箱"
+                        value="{{ username | default('') }}"
+                        autocomplete="username"
+                    >
+                </div>
+                <div class="field-error" id="usernameError">请输入用户名或邮箱</div>
+            </div>
+
+            <!-- 密码 -->
+            <div class="form-group">
+                <label for="password"><i class="fas fa-lock" style="color:#007bff;margin-right:5px;"></i>密码</label>
+                <div class="input-wrapper">
+                    <i class="fas fa-lock input-icon"></i>
+                    <input
+                        type="password"
+                        id="password"
+                        name="password"
+                        placeholder="请输入密码"
+                        autocomplete="current-password"
+                    >
+                    <span class="toggle-pwd" onclick="togglePassword('password', this)">
+                        <i class="fas fa-eye"></i>
+                    </span>
+                </div>
+                <div class="field-error" id="passwordError">请输入密码</div>
+            </div>
+
+            <!-- 图形验证码 -->
+            <div class="form-group">
+                <label><i class="fas fa-shield-halved" style="color:#007bff;margin-right:5px;"></i>验证码</label>
+                <div style="display:flex;gap:10px;align-items:center;">
+                    <div class="input-wrapper" style="flex:1;">
+                        <i class="fas fa-keyboard input-icon"></i>
+                        <input
+                            type="text"
+                            id="captcha"
+                            name="captcha"
+                            placeholder="请输入右侧验证码"
+                            maxlength="4"
+                            autocomplete="off"
+                            style="letter-spacing:3px;text-transform:uppercase;"
+                        >
+                    </div>
+                    <img id="captchaImg"
+                         src="{{ url_for('captcha') }}"
+                         alt="验证码"
+                         title="点击刷新验证码"
+                         onclick="refreshCaptcha()"
+                         style="height:40px;border-radius:6px;cursor:pointer;border:1.5px solid #dde3ec;flex-shrink:0;">
+                </div>
+                <div class="field-error" id="captchaError">请输入验证码</div>
+            </div>
+
+            <!-- 记住我 + 忘记密码 -->
+            <div class="form-options">
+                <label class="remember-me">
+                    <input type="checkbox" name="remember_me" value="1">
+                    记住我（7天内免登录）
+                </label>
+                <a href="{{ url_for('forgot_password') }}" class="forgot-password">
+                    忘记密码？
+                </a>
+            </div>
+
+            <!-- 登录按钮 -->
+            <button type="submit" class="btn-login">
+                <i class="fas fa-right-to-bracket"></i>&nbsp; 立即登录
+            </button>
+        </form>
+
+        <!-- 底部注册链接 -->
+        <div class="footer-link">
+            还没有账号？<a href="{{ url_for('register') }}">立即注册</a>
+        </div>
+    </div>
+
+    <script>
+        // 密码显示/隐藏切换
+        function togglePassword(inputId, iconEl) {
+            const input = document.getElementById(inputId);
+            const icon = iconEl.querySelector('i');
+            if (input.type === 'password') {
+                input.type = 'text';
+                icon.classList.replace('fa-eye', 'fa-eye-slash');
+            } else {
+                input.type = 'password';
+                icon.classList.replace('fa-eye-slash', 'fa-eye');
+            }
+        }
+
+        // 刷新验证码
+        function refreshCaptcha() {
+            const img = document.getElementById('captchaImg');
+            img.src = '/captcha?' + Date.now();
+            document.getElementById('captcha').value = '';
+        }
+
+        // 登录失败后自动刷新验证码
+        {% if get_flashed_messages() %}
+        window.addEventListener('DOMContentLoaded', function() {
+            refreshCaptcha();
+        });
+        {% endif %}
+
+        // 前端表单验证
+        document.getElementById('loginForm').addEventListener('submit', function (e) {
+            let valid = true;
+
+            const username    = document.getElementById('username');
+            const password    = document.getElementById('password');
+            const captchaInp  = document.getElementById('captcha');
+            const usernameError = document.getElementById('usernameError');
+            const passwordError = document.getElementById('passwordError');
+            const captchaError  = document.getElementById('captchaError');
+
+            // 重置所有错误状态
+            [username, password, captchaInp].forEach(el => el.classList.remove('input-error'));
+            [usernameError, passwordError, captchaError].forEach(el => el.classList.remove('show'));
+
+            if (!username.value.trim()) {
+                username.classList.add('input-error');
+                usernameError.textContent = '请输入用户名';
+                usernameError.classList.add('show');
+                valid = false;
+            }
+            if (!password.value) {
+                password.classList.add('input-error');
+                passwordError.textContent = '请输入密码';
+                passwordError.classList.add('show');
+                valid = false;
+            }
+            if (!captchaInp.value.trim()) {
+                captchaInp.classList.add('input-error');
+                captchaError.textContent = '请输入验证码';
+                captchaError.classList.add('show');
+                valid = false;
+            }
+
+            if (!valid) e.preventDefault();
+        });
+    </script>
+</body>
+</html>
