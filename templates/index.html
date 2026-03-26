@@ -379,6 +379,88 @@
                 align-items: center;
             }
         }
+        
+        /* 日期输入框样式 */
+        .date-input {
+            padding: 8px 12px;
+            border: 1px solid #ced4da;
+            border-radius: 4px;
+            background-color: white;
+            color: #495057;
+            font-size: 13px;
+            cursor: pointer;
+        }
+        .date-input:focus {
+            outline: none;
+            border-color: #007bff;
+            box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
+        }
+        
+        /* 数据信息栏样式 */
+        .data-info {
+            display: flex;
+            gap: 20px;
+            padding: 10px 15px;
+            background: linear-gradient(135deg, #e9f5ff 0%, #f0f7ff 100%);
+            border-radius: 8px;
+            margin-bottom: 15px;
+            font-size: 13px;
+            color: #495057;
+            flex-wrap: wrap;
+        }
+        .data-info span {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        .data-info i {
+            color: #007bff;
+        }
+        
+        /* 加载动画 */
+        .loading-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(255, 255, 255, 0.8);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 100;
+        }
+        .loading-spinner {
+            width: 40px;
+            height: 40px;
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #007bff;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        /* 无数据提示 */
+        .no-data-message {
+            text-align: center;
+            padding: 60px 20px;
+            color: #6c757d;
+        }
+        .no-data-message i {
+            font-size: 48px;
+            margin-bottom: 15px;
+            color: #dee2e6;
+        }
+        .no-data-message p {
+            font-size: 16px;
+            margin-bottom: 10px;
+        }
+        .no-data-message small {
+            color: #adb5bd;
+        }
     </style>
     <!-- 引入图标库（增强视觉效果） -->
     <link rel="stylesheet" href="https://cdn.bootcdn.net/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -414,7 +496,7 @@
             <i class="fas fa-traffic-light"></i>
             <h3>拥堵疏导控制台</h3>
             <p>自动生成疏导方案、区域协同分析、人工干预与策略回退</p>
-            <a href="{{ url_for('guidance') }}">进入功能 <i class="fas fa-arrow-right"></i></a>
+            <a href="{{ url_for('guidance_new') }}">进入功能 <i class="fas fa-arrow-right"></i></a>
         </div>
         <div class="function-card">
             <i class="fas fa-tv"></i>
@@ -441,6 +523,23 @@
         <h2><i class="fas fa-car"></i> 历史车流量信息</h2>
         <div class="update-time">最后更新时间：{{ current_time }}</div>
         
+        <!-- 时间选择控制栏（简化版：只保留完整时间点选择） -->
+        <div class="chart-controls" style="margin-bottom: 10px;">
+            <div class="control-group">
+                <span class="control-label"><i class="fas fa-calendar-day"></i> 选择时间点：</span>
+                <select id="exactTimeSelector" class="sort-select" style="min-width: 180px;">
+                    <option value="">请选择时间点</option>
+                </select>
+                <button class="chart-btn active" id="loadDataBtn" onclick="loadHistoryData()">
+                    <i class="fas fa-sync-alt"></i>
+                </button>
+
+            </div>
+        </div>
+        
+        <!-- 数据统计信息 -->
+
+        
         <!-- 图表控制栏 -->
         <div class="chart-controls">
             <div class="control-group">
@@ -454,14 +553,6 @@
                 <button class="chart-btn" data-type="pie">
                     <i class="fas fa-chart-pie"></i> 饼图
                 </button>
-            </div>
-            <div class="control-group">
-                <span class="control-label">排序方式：</span>
-                <select class="sort-select">
-                    <option value="desc">流量从高到低</option>
-                    <option value="asc">流量从低到高</option>
-                    <option value="name">按路段名称</option>
-                </select>
             </div>
         </div>
         
@@ -504,6 +595,229 @@
     <script src="{{ url_for('static', filename='echarts.min.js') }}"></script>
     
     <script>
+        // 全局变量
+        let currentTrafficData = [];
+        let chart = null;
+        let currentChartType = 'bar';
+        let currentSortOrder = 'none';
+        
+        // 准备图表数据
+        function prepareChartData(data, sortOrder = 'none') {
+            // 复制数据以避免修改原数组
+            let sortedData = [...data];
+            
+            // 根据排序方式排序（默认不排序）
+            if (sortOrder === 'desc') {
+                sortedData.sort((a, b) => b.flow - a.flow);
+            } else if (sortOrder === 'asc') {
+                sortedData.sort((a, b) => a.flow - b.flow);
+            } else if (sortOrder === 'name') {
+                sortedData.sort((a, b) => a.road_name.localeCompare(b.road_name, 'zh-CN'));
+            }
+            
+            // 确保所有数据字段都正确提取
+            return {
+                roads: sortedData.map(item => item.road_name || ''),
+                flows: sortedData.map(item => item.flow || 0),
+                colors: sortedData.map(item => item.flow_color || '#cccccc'),
+                levels: sortedData.map(item => item.flow_level || '未知'),
+                percentages: sortedData.map(item => item.flow_percentage || 0),
+                formatted: sortedData.map(item => item.flow_formatted || '0辆/小时')
+            };
+        }
+        
+        // 获取图表配置选项
+        function getChartOption(type, chartData) {
+            const baseOption = {
+                backgroundColor: '#fff',
+                tooltip: {
+                    trigger: 'axis',
+                    axisPointer: {
+                        type: 'shadow'
+                    },
+                    formatter: function(params) {
+                        const data = params[0];
+                        const index = data.dataIndex;
+                        return `
+                            <div style="font-weight: bold; margin-bottom: 5px;">${chartData.roads[index]}</div>
+                            <div>车流量：${chartData.formatted[index]}</div>
+                            <div>流量等级：<span style="color: ${chartData.colors[index]}">${chartData.levels[index]}</span></div>
+                            <div>占比：${chartData.percentages[index]}%</div>
+                        `;
+                    }
+                },
+                grid: {
+                    left: '3%',
+                    right: '4%',
+                    bottom: '10%',
+                    top: '10%',
+                    containLabel: true
+                },
+                xAxis: {
+                    type: 'category',
+                    data: chartData.roads,
+                    axisLabel: {
+                        rotate: 30,
+                        fontSize: 12
+                    },
+                    axisLine: {
+                        lineStyle: {
+                            color: '#ccc'
+                        }
+                    }
+                },
+                yAxis: {
+                    type: 'value',
+                    name: '车流量 (辆/小时)',
+                    nameTextStyle: {
+                        fontSize: 12,
+                        padding: [0, 0, 0, 10]
+                    },
+                    axisLine: {
+                        lineStyle: {
+                            color: '#ccc'
+                        }
+                    },
+                    splitLine: {
+                        lineStyle: {
+                            type: 'dashed',
+                            color: '#e0e0e0'
+                        }
+                    }
+                }
+            };
+            
+            if (type === 'bar') {
+                return {
+                    ...baseOption,
+                    title: {
+                        text: '路段车流量统计',
+                        left: 'center',
+                        textStyle: {
+                            fontSize: 16,
+                            fontWeight: 'normal'
+                        }
+                    },
+                    series: [{
+                        name: '车流量',
+                        type: 'bar',
+                        data: chartData.flows.map((flow, index) => ({
+                            value: flow,
+                            itemStyle: {
+                                color: chartData.colors[index]
+                            }
+                        })),
+                        barWidth: '60%',
+                        label: {
+                            show: true,
+                            position: 'top',
+                            formatter: '{c}',
+                            fontSize: 12
+                        },
+                        itemStyle: {
+                            borderRadius: [4, 4, 0, 0]
+                        }
+                    }]
+                };
+            } else if (type === 'line') {
+                return {
+                    ...baseOption,
+                    title: {
+                        text: '路段车流量趋势',
+                        left: 'center',
+                        textStyle: {
+                            fontSize: 16,
+                            fontWeight: 'normal'
+                        }
+                    },
+                    series: [{
+                        name: '车流量',
+                        type: 'line',
+                        data: chartData.flows,
+                        smooth: true,
+                        symbol: 'circle',
+                        symbolSize: 8,
+                        lineStyle: {
+                            width: 3,
+                            color: '#007bff'
+                        },
+                        itemStyle: {
+                            color: '#007bff',
+                            borderColor: '#fff',
+                            borderWidth: 2
+                        },
+                        areaStyle: {
+                            color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+                                { offset: 0, color: 'rgba(0, 123, 255, 0.3)' },
+                                { offset: 1, color: 'rgba(0, 123, 255, 0.1)' }
+                            ])
+                        },
+                        label: {
+                            show: true,
+                            position: 'top',
+                            formatter: '{c}',
+                            fontSize: 12
+                        }
+                    }]
+                };
+            } else if (type === 'pie') {
+                return {
+                    title: {
+                        text: '路段车流量分布',
+                        left: 'center',
+                        textStyle: {
+                            fontSize: 16,
+                            fontWeight: 'normal'
+                        }
+                    },
+                    tooltip: {
+                        trigger: 'item',
+                        formatter: function(params) {
+                            return `
+                                <div style="font-weight: bold; margin-bottom: 5px;">${params.name}</div>
+                                <div>车流量：${params.data.formatted}</div>
+                                <div>占比：${params.percent}%</div>
+                                <div>流量等级：<span style="color: ${params.color}">${params.data.level}</span></div>
+                            `;
+                        }
+                    },
+                    legend: {
+                        orient: 'vertical',
+                        left: 'left',
+                        top: 'center',
+                        data: chartData.roads
+                    },
+                    series: [{
+                        name: '车流量',
+                        type: 'pie',
+                        radius: ['40%', '70%'],
+                        center: ['60%', '50%'],
+                        data: chartData.roads.map((road, index) => ({
+                            name: road,
+                            value: chartData.flows[index],
+                            formatted: chartData.formatted[index],
+                            level: chartData.levels[index],
+                            itemStyle: {
+                                color: chartData.colors[index]
+                            }
+                        })),
+                        emphasis: {
+                            itemStyle: {
+                                shadowBlur: 10,
+                                shadowOffsetX: 0,
+                                shadowColor: 'rgba(0, 0, 0, 0.5)'
+                            }
+                        },
+                        label: {
+                            formatter: '{b}: {d}%'
+                        }
+                    }]
+                };
+            }
+            
+            return baseOption;
+        }
+        
         // 页面加载完成后初始化图表
         document.addEventListener('DOMContentLoaded', function() {
             // 获取后端传递的数据
@@ -522,237 +836,13 @@
             
             // 初始化ECharts实例
             const chartDom = document.getElementById('trafficFlowChart');
-            const chart = echarts.init(chartDom);
+            chart = echarts.init(chartDom);
             
-            // 当前图表类型和排序方式
-            let currentChartType = 'bar';
-            let currentSortOrder = 'desc';
+            // 设置初始数据（不排序）
+            currentTrafficData = trafficData;
             
-            // 准备图表数据
-            function prepareChartData(data, sortOrder = 'desc') {
-                // 复制数据以避免修改原数组
-                let sortedData = [...data];
-                
-                // 根据排序方式排序
-                if (sortOrder === 'desc') {
-                    sortedData.sort((a, b) => b.flow - a.flow);
-                } else if (sortOrder === 'asc') {
-                    sortedData.sort((a, b) => a.flow - b.flow);
-                } else if (sortOrder === 'name') {
-                    sortedData.sort((a, b) => a.road_name.localeCompare(b.road_name, 'zh-CN'));
-                }
-                
-                return {
-                    roads: sortedData.map(item => item.road_name),
-                    flows: sortedData.map(item => item.flow),
-                    colors: sortedData.map(item => item.flow_color),
-                    levels: sortedData.map(item => item.flow_level),
-                    percentages: sortedData.map(item => item.flow_percentage),
-                    formatted: sortedData.map(item => item.flow_formatted)
-                };
-            }
-            
-            // 获取图表配置选项
-            function getChartOption(type, chartData) {
-                const baseOption = {
-                    backgroundColor: '#fff',
-                    tooltip: {
-                        trigger: 'axis',
-                        axisPointer: {
-                            type: 'shadow'
-                        },
-                        formatter: function(params) {
-                            const data = params[0];
-                            const index = data.dataIndex;
-                            return `
-                                <div style="font-weight: bold; margin-bottom: 5px;">${chartData.roads[index]}</div>
-                                <div>车流量：${chartData.formatted[index]}</div>
-                                <div>流量等级：<span style="color: ${chartData.colors[index]}">${chartData.levels[index]}</span></div>
-                                <div>占比：${chartData.percentages[index]}%</div>
-                            `;
-                        }
-                    },
-                    grid: {
-                        left: '3%',
-                        right: '4%',
-                        bottom: '10%',
-                        top: '10%',
-                        containLabel: true
-                    },
-                    xAxis: {
-                        type: 'category',
-                        data: chartData.roads,
-                        axisLabel: {
-                            rotate: 30,
-                            fontSize: 12
-                        },
-                        axisLine: {
-                            lineStyle: {
-                                color: '#ccc'
-                            }
-                        }
-                    },
-                    yAxis: {
-                        type: 'value',
-                        name: '车流量 (辆/小时)',
-                        nameTextStyle: {
-                            fontSize: 12,
-                            padding: [0, 0, 0, 10]
-                        },
-                        axisLine: {
-                            lineStyle: {
-                                color: '#ccc'
-                            }
-                        },
-                        splitLine: {
-                            lineStyle: {
-                                type: 'dashed',
-                                color: '#e0e0e0'
-                            }
-                        }
-                    }
-                };
-                
-                if (type === 'bar') {
-                    return {
-                        ...baseOption,
-                        title: {
-                            text: '路段车流量统计',
-                            left: 'center',
-                            textStyle: {
-                                fontSize: 16,
-                                fontWeight: 'normal'
-                            }
-                        },
-                        series: [{
-                            name: '车流量',
-                            type: 'bar',
-                            data: chartData.flows.map((flow, index) => ({
-                                value: flow,
-                                itemStyle: {
-                                    color: chartData.colors[index]
-                                }
-                            })),
-                            barWidth: '60%',
-                            label: {
-                                show: true,
-                                position: 'top',
-                                formatter: '{c}',
-                                fontSize: 12
-                            },
-                            itemStyle: {
-                                borderRadius: [4, 4, 0, 0]
-                            }
-                        }]
-                    };
-                } else if (type === 'line') {
-                    return {
-                        ...baseOption,
-                        title: {
-                            text: '路段车流量趋势',
-                            left: 'center',
-                            textStyle: {
-                                fontSize: 16,
-                                fontWeight: 'normal'
-                            }
-                        },
-                        series: [{
-                            name: '车流量',
-                            type: 'line',
-                            data: chartData.flows,
-                            smooth: true,
-                            symbol: 'circle',
-                            symbolSize: 8,
-                            lineStyle: {
-                                width: 3,
-                                color: '#007bff'
-                            },
-                            itemStyle: {
-                                color: '#007bff',
-                                borderColor: '#fff',
-                                borderWidth: 2
-                            },
-                            areaStyle: {
-                                color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
-                                    { offset: 0, color: 'rgba(0, 123, 255, 0.3)' },
-                                    { offset: 1, color: 'rgba(0, 123, 255, 0.1)' }
-                                ])
-                            },
-                            label: {
-                                show: true,
-                                position: 'top',
-                                formatter: '{c}',
-                                fontSize: 12
-                            }
-                        }]
-                    };
-                } else if (type === 'pie') {
-                    return {
-                        title: {
-                            text: '路段车流量分布',
-                            left: 'center',
-                            textStyle: {
-                                fontSize: 16,
-                                fontWeight: 'normal'
-                            }
-                        },
-                        tooltip: {
-                            trigger: 'item',
-                            formatter: function(params) {
-                                return `
-                                    <div style="font-weight: bold; margin-bottom: 5px;">${params.name}</div>
-                                    <div>车流量：${params.data.formatted}</div>
-                                    <div>占比：${params.percent}%</div>
-                                    <div>流量等级：<span style="color: ${params.color}">${params.data.level}</span></div>
-                                `;
-                            }
-                        },
-                        legend: {
-                            orient: 'vertical',
-                            left: 'left',
-                            top: 'center',
-                            data: chartData.roads
-                        },
-                        series: [{
-                            name: '车流量',
-                            type: 'pie',
-                            radius: ['40%', '70%'],
-                            center: ['60%', '50%'],
-                            data: chartData.roads.map((road, index) => ({
-                                name: road,
-                                value: chartData.flows[index],
-                                formatted: chartData.formatted[index],
-                                level: chartData.levels[index],
-                                itemStyle: {
-                                    color: chartData.colors[index]
-                                }
-                            })),
-                            emphasis: {
-                                itemStyle: {
-                                    shadowBlur: 10,
-                                    shadowOffsetX: 0,
-                                    shadowColor: 'rgba(0, 0, 0, 0.5)'
-                                }
-                            },
-                            label: {
-                                formatter: '{b}: {d}%'
-                            }
-                        }]
-                    };
-                }
-                
-                return baseOption;
-            }
-            
-            // 更新图表
-            function updateChart() {
-                const chartData = prepareChartData(trafficData, currentSortOrder);
-                const option = getChartOption(currentChartType, chartData);
-                chart.setOption(option, true);
-            }
-            
-            // 初始化图表
-            updateChart();
+            // 初始化图表（不排序）
+            updateChartWithData(currentTrafficData);
             
             // 图表类型切换
             document.querySelectorAll('.chart-btn').forEach(btn => {
@@ -797,7 +887,483 @@
                     link.click();
                 }
             });
+            
+        // 初始化时间点选择器
+        initExactTimeSelector();
         });
+        
+        // 初始化日期选择器
+        function initDateSelector() {
+            const dateSelector = document.getElementById('dateSelector');
+            const hourSelector = document.getElementById('hourSelector');
+            
+            // 获取可用的日期和时间
+            fetch('/api/traffic_available_times')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        // 清空日期选择器的现有选项
+                        dateSelector.innerHTML = '';
+                        
+                        // 添加可用的日期选项
+                        data.available_dates.forEach(date => {
+                            const option = document.createElement('option');
+                            option.value = date;
+                            option.textContent = date;
+                            dateSelector.appendChild(option);
+                        });
+                        
+                        // 设置默认日期为最新日期
+                        if (data.latest_date) {
+                            dateSelector.value = data.latest_date;
+                            
+                            // 更新小时选择器
+                            updateHourSelector(data.latest_date, data.date_hours);
+                        }
+                        
+                        // 加载初始数据
+                        loadHistoryData();
+                    } else {
+                        console.error('获取可用时间失败:', data.msg);
+                        // 使用默认日期范围作为后备
+                        setDefaultDateRange();
+                        loadHistoryData();
+                    }
+                })
+                .catch(error => {
+                    console.error('获取可用时间错误:', error);
+                    // 使用默认日期范围作为后备
+                    setDefaultDateRange();
+                    loadHistoryData();
+                });
+            
+            // 日期变化时更新小时选择器
+            dateSelector.addEventListener('change', function() {
+                const selectedDate = this.value;
+                if (selectedDate) {
+                    // 重新获取可用时间数据
+                    fetch('/api/traffic_available_times')
+                        .then(response => response.json())
+                        .then(data => {
+                            if (data.success) {
+                                updateHourSelector(selectedDate, data.date_hours);
+                            }
+                        });
+                }
+            });
+        }
+        
+        // 更新小时选择器
+        function updateHourSelector(selectedDate, dateHours) {
+            const hourSelector = document.getElementById('hourSelector');
+            
+            // 清空现有选项（保留第一个"全天平均"选项）
+            const allDayOption = hourSelector.querySelector('option[value=""]');
+            hourSelector.innerHTML = '';
+            if (allDayOption) {
+                hourSelector.appendChild(allDayOption);
+            } else {
+                // 如果没有全天选项，创建一个
+                const defaultOption = document.createElement('option');
+                defaultOption.value = '';
+                defaultOption.textContent = '全天平均';
+                hourSelector.appendChild(defaultOption);
+            }
+            
+            // 获取该日期可用的小时
+            const availableHours = dateHours[selectedDate] || [];
+            
+            // 添加可用的小时选项
+            availableHours.forEach(hour => {
+                const option = document.createElement('option');
+                option.value = hour;
+                
+                // 格式化显示文本
+                const hourText = hour.toString().padStart(2, '0');
+                let displayText = `${hourText}:00 - ${hourText}:59`;
+                
+                // 添加高峰时段标记
+                if (hour === 7 || hour === 8) {
+                    displayText += ' (早高峰)';
+                } else if (hour === 17 || hour === 18) {
+                    displayText += ' (晚高峰)';
+                }
+                
+                option.textContent = displayText;
+                hourSelector.appendChild(option);
+            });
+            
+            // 如果没有可用小时，禁用小时选择器
+            if (availableHours.length === 0) {
+                hourSelector.disabled = true;
+                hourSelector.innerHTML = '<option value="">该日期无小时数据</option>';
+            } else {
+                hourSelector.disabled = false;
+            }
+        }
+        
+        // 设置默认日期范围（后备方案）
+        function setDefaultDateRange() {
+            const dateSelector = document.getElementById('dateSelector');
+            const today = new Date();
+            const yesterday = new Date(today);
+            yesterday.setDate(today.getDate() - 1);
+            
+            // 设置默认日期为昨天
+            dateSelector.value = yesterday.toISOString().split('T')[0];
+            
+            // 设置可选日期范围（2025-03-01 到 2026-03-11）
+            dateSelector.min = '2025-03-01';
+            dateSelector.max = '2026-03-11';
+        }
+        
+        // 加载历史数据
+        function loadHistoryData() {
+            const exactTimeSelector = document.getElementById('exactTimeSelector');
+            const loadBtn = document.getElementById('loadDataBtn');
+            
+            // 完整时间点模式
+            const exactTime = exactTimeSelector.value;
+            
+            if (!exactTime) {
+                alert('请选择时间点');
+                return;
+            }
+            
+            const url = `/api/traffic_flow_history?exact_time=${encodeURIComponent(exactTime)}`;
+            
+            // 显示加载状态
+            loadBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 加载中...';
+            loadBtn.disabled = true;
+            
+            // 显示加载遮罩
+            showLoading();
+            
+            // 发送请求
+            fetch(url)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        // 更新数据
+                        currentTrafficData = data.data;
+                        
+
+                        
+                        // 更新图表
+                        updateChartWithData(currentTrafficData);
+                        
+                        // 更新最后更新时间
+                        const timeText = data.selected_exact_time || exactTimeSelector.value;
+                        document.querySelector('.update-time').textContent = 
+                            `最后更新时间：${timeText}`;
+                    } else {
+                        alert('加载数据失败：' + data.msg);
+                    }
+                })
+                .catch(error => {
+                    console.error('加载数据错误:', error);
+                    alert('加载数据失败，请检查网络连接');
+                })
+                .finally(() => {
+                    // 恢复按钮状态
+                    loadBtn.innerHTML = '<i class="fas fa-sync-alt"></i> 加载数据';
+                    loadBtn.disabled = false;
+                    
+                    // 隐藏加载遮罩
+                    hideLoading();
+                });
+        }
+        
+        // 显示加载遮罩
+        function showLoading() {
+            const chartContainer = document.getElementById('trafficFlowChart');
+            if (!chartContainer.querySelector('.loading-overlay')) {
+                const overlay = document.createElement('div');
+                overlay.className = 'loading-overlay';
+                overlay.innerHTML = '<div class="loading-spinner"></div>';
+                chartContainer.style.position = 'relative';
+                chartContainer.appendChild(overlay);
+            }
+        }
+        
+        // 隐藏加载遮罩
+        function hideLoading() {
+            const chartContainer = document.getElementById('trafficFlowChart');
+            const overlay = chartContainer.querySelector('.loading-overlay');
+            if (overlay) {
+                chartContainer.removeChild(overlay);
+            }
+        }
+        
+        // 更新数据统计信息
+        function updateDataInfo(data) {
+
+            const roadCount = document.getElementById('roadCount');
+            const recordCount = document.getElementById('recordCount');
+            const selectedTimeInfo = document.getElementById('selectedTimeInfo');
+            
+            if (data.data.length > 0) {
+                roadCount.textContent = data.road_count;
+                recordCount.textContent = data.record_count;
+                
+                let timeText = '';
+                if (data.selected_exact_time) {
+                    timeText = `<i class="fas fa-clock"></i> ${data.selected_exact_time}`;
+                } else if (data.selected_date) {
+                    timeText = `<i class="fas fa-calendar-day"></i> ${data.selected_date}`;
+                }
+                
+                selectedTimeInfo.innerHTML = timeText;
+
+            } else {
+
+                // 显示无数据提示
+                showNoDataMessage();
+            }
+        }
+        
+        // 显示无数据提示
+        function showNoDataMessage() {
+            const chartContainer = document.getElementById('trafficFlowChart');
+            const existingMessage = chartContainer.querySelector('.no-data-message');
+            
+            if (!existingMessage) {
+                const message = document.createElement('div');
+                message.className = 'no-data-message';
+                message.innerHTML = `
+                    <i class="fas fa-database"></i>
+                    <p>该时间段没有数据</p>
+                    <small>请选择其他日期或时段</small>
+                `;
+                chartContainer.appendChild(message);
+            }
+        }
+        
+        // 更新图表（用于排序和图表类型切换）
+        function updateChart() {
+            if (!chart || currentTrafficData.length === 0) {
+                return;
+            }
+            
+            // 准备图表数据
+            const chartData = prepareChartData(currentTrafficData, currentSortOrder);
+            const option = getChartOption(currentChartType, chartData);
+            chart.setOption(option, true);
+        }
+        
+        // 使用新数据更新图表
+        function updateChartWithData(data) {
+            if (!chart) {
+                chart = echarts.init(document.getElementById('trafficFlowChart'));
+            }
+            
+            // 移除无数据提示
+            const chartContainer = document.getElementById('trafficFlowChart');
+            const noDataMessage = chartContainer.querySelector('.no-data-message');
+            if (noDataMessage) {
+                chartContainer.removeChild(noDataMessage);
+            }
+            
+            if (data.length === 0) {
+                showNoDataMessage();
+                return;
+            }
+            
+            // 更新当前数据
+            currentTrafficData = data;
+            
+            // 更新图表
+            updateChart();
+        }
+        
+        // 切换选择模式（完整时间点 vs 传统选择）
+        function toggleSelectionMode() {
+            const toggleBtn = document.getElementById('toggleModeBtn');
+            const exactTimeMode = document.getElementById('exactTimeMode');
+            const traditionalMode = document.getElementById('traditionalMode');
+            
+            if (exactTimeMode.style.display === 'none') {
+                // 切换到完整时间点模式
+                exactTimeMode.style.display = 'flex';
+                traditionalMode.style.display = 'none';
+                toggleBtn.innerHTML = '<i class="fas fa-calendar-alt"></i> 传统选择';
+                toggleBtn.classList.add('active');
+                
+                // 初始化完整时间点选择器
+                initExactTimeSelector();
+            } else {
+                // 切换到传统选择模式
+                exactTimeMode.style.display = 'none';
+                traditionalMode.style.display = 'flex';
+                toggleBtn.innerHTML = '<i class="fas fa-clock"></i> 完整时间点';
+                toggleBtn.classList.remove('active');
+                
+                // 初始化传统选择器
+                initDateSelector();
+            }
+        }
+        
+        // 初始化完整时间点选择器
+        function initExactTimeSelector() {
+            const exactTimeSelector = document.getElementById('exactTimeSelector');
+            
+            // 获取可用的完整时间点
+            fetch('/api/traffic_available_times')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success && data.available_times && data.available_times.length > 0) {
+                        // 清空现有选项
+                        exactTimeSelector.innerHTML = '<option value="">请选择时间点</option>';
+                        
+                        // 添加可用的时间点选项
+                        data.available_times.forEach(time => {
+                            const option = document.createElement('option');
+                            option.value = time;
+                            option.textContent = time;
+                            exactTimeSelector.appendChild(option);
+                        });
+                        
+                        // 设置默认值为最新时间点
+                        if (data.available_times.length > 0) {
+                            exactTimeSelector.value = data.available_times[data.available_times.length - 1];
+                            // 自动加载默认时间点的数据
+                            setTimeout(() => {
+                                loadHistoryData();
+                            }, 100);
+                        }
+                    } else {
+                        exactTimeSelector.innerHTML = '<option value="">暂无可用时间点</option>';
+                    }
+                })
+                .catch(error => {
+                    console.error('获取时间点数据错误:', error);
+                    exactTimeSelector.innerHTML = '<option value="">获取数据失败</option>';
+                });
+            
+            // 添加change事件监听器，选择时间后自动加载数据
+            exactTimeSelector.addEventListener('change', function() {
+                if (this.value) {
+                    loadHistoryData();
+                }
+            });
+        }
+        
+        // 切换时间精度
+        function toggleTimePrecision() {
+            const hourSelector = document.getElementById('hourSelector');
+            const minuteSelector = document.getElementById('minuteSelector');
+            const secondSelector = document.getElementById('secondSelector');
+            const toggleBtn = document.getElementById('togglePrecisionBtn');
+            
+            if (minuteSelector.style.display === 'none') {
+                // 切换到精确到秒模式
+                minuteSelector.style.display = 'inline-block';
+                secondSelector.style.display = 'inline-block';
+                toggleBtn.innerHTML = '<i class="fas fa-clock"></i> 精确到小时';
+                toggleBtn.classList.add('active');
+                
+                // 初始化分钟和秒选择器
+                initMinuteSelector();
+                initSecondSelector();
+            } else {
+                // 切换回精确到小时模式
+                minuteSelector.style.display = 'none';
+                secondSelector.style.display = 'none';
+                toggleBtn.innerHTML = '<i class="fas fa-clock"></i> 精确到秒';
+                toggleBtn.classList.remove('active');
+            }
+        }
+        
+        // 初始化分钟选择器（基于数据库中的实际数据）
+        function initMinuteSelector() {
+            const minuteSelector = document.getElementById('minuteSelector');
+            const hourSelector = document.getElementById('hourSelector');
+            const dateSelector = document.getElementById('dateSelector');
+            
+            const date = dateSelector.value;
+            const hour = hourSelector.value;
+            
+            if (!date || !hour) {
+                minuteSelector.innerHTML = '<option value="">请先选择日期和小时</option>';
+                return;
+            }
+            
+            // 从API获取该日期和小时的可用分钟
+            fetch(`/api/traffic_available_times`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        const key = `${date}_${hour}`;
+                        const availableMinutes = data.date_minutes[key] ? data.date_minutes[key][hour] || [] : [];
+                        
+                        minuteSelector.innerHTML = '<option value="">选择分钟</option>';
+                        
+                        if (availableMinutes.length > 0) {
+                            availableMinutes.forEach(minute => {
+                                const option = document.createElement('option');
+                                option.value = minute.toString().padStart(2, '0');
+                                option.textContent = minute.toString().padStart(2, '0') + '分';
+                                minuteSelector.appendChild(option);
+                            });
+                        } else {
+                            minuteSelector.innerHTML = '<option value="">该小时无分钟数据</option>';
+                        }
+                    } else {
+                        minuteSelector.innerHTML = '<option value="">获取分钟数据失败</option>';
+                    }
+                })
+                .catch(error => {
+                    console.error('获取分钟数据错误:', error);
+                    minuteSelector.innerHTML = '<option value="">获取数据失败</option>';
+                });
+        }
+        
+        // 初始化秒选择器（基于数据库中的实际数据）
+        function initSecondSelector() {
+            const secondSelector = document.getElementById('secondSelector');
+            const minuteSelector = document.getElementById('minuteSelector');
+            const hourSelector = document.getElementById('hourSelector');
+            const dateSelector = document.getElementById('dateSelector');
+            
+            const date = dateSelector.value;
+            const hour = hourSelector.value;
+            const minute = minuteSelector.value;
+            
+            if (!date || !hour || !minute) {
+                secondSelector.innerHTML = '<option value="">请先选择日期、小时和分钟</option>';
+                return;
+            }
+            
+            // 从API获取该日期、小时和分钟的可用秒
+            fetch(`/api/traffic_available_times`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        const key = `${date}_${hour}`;
+                        const availableSeconds = data.date_seconds[key] ? data.date_seconds[key][minute] || [] : [];
+                        
+                        secondSelector.innerHTML = '<option value="">选择秒</option>';
+                        
+                        if (availableSeconds.length > 0) {
+                            availableSeconds.forEach(second => {
+                                const option = document.createElement('option');
+                                option.value = second.toString().padStart(2, '0');
+                                option.textContent = second.toString().padStart(2, '0') + '秒';
+                                secondSelector.appendChild(option);
+                            });
+                        } else {
+                            secondSelector.innerHTML = '<option value="">该分钟无秒数据</option>';
+                        }
+                    } else {
+                        secondSelector.innerHTML = '<option value="">获取秒数据失败</option>';
+                    }
+                })
+                .catch(error => {
+                    console.error('获取秒数据错误:', error);
+                    secondSelector.innerHTML = '<option value="">获取数据失败</option>';
+                });
+        }
+        
     </script>
 </body>
 </html>
